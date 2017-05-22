@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.6
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer", "PerformanceAnalyzer\PerformanceAnalyzer\PerformanceAnalyzer.csproj", "{302740CF-19AB-4705-B43A-C9495247F49D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Test", "PerformanceAnalyzer\PerformanceAnalyzer.Test\PerformanceAnalyzer.Test.csproj", "{B0375F5F-8382-4A8F-8482-7F5929D23290}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Vsix", "PerformanceAnalyzer\PerformanceAnalyzer.Vsix\PerformanceAnalyzer.Vsix.csproj", "{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTester", "ConsoleTester\ConsoleTester.csproj", "{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitStuff", "GitStuff", "{F74261AE-F9FE-436B-8B31-63496BB44385}"
+	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{302740CF-19AB-4705-B43A-C9495247F49D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{302740CF-19AB-4705-B43A-C9495247F49D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{302740CF-19AB-4705-B43A-C9495247F49D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{302740CF-19AB-4705-B43A-C9495247F49D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0375F5F-8382-4A8F-8482-7F5929D23290}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0375F5F-8382-4A8F-8482-7F5929D23290}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0375F5F-8382-4A8F-8482-7F5929D23290}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0375F5F-8382-4A8F-8482-7F5929D23290}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
