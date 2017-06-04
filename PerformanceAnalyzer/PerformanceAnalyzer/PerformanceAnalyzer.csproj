@@ -36,7 +36,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AnalyzerBase.cs" />
     <Compile Include="CodeFixProvider.cs" />
+    <Compile Include="ExecutionPath.cs" />
     <Compile Include="MemoizationAnalyzer.cs" />
     <Compile Include="ElementMatcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

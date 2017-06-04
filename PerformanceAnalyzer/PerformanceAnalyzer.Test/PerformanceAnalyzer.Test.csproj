@@ -169,17 +169,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Helpers\DiagnosticResultLocation.cs" />
+    <Compile Include="Verifiers\DiagnosticResultLocation.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="TestClass.cs">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Compile>
-    <Compile Include="Verifiers\CodeFixVerifier.cs" />
     <Compile Include="Verifiers\DiagnosticVerifier.cs" />
-    <Compile Include="Helpers\CodeFixVerifier.Helper.cs" />
-    <Compile Include="Helpers\DiagnosticResult.cs" />
-    <Compile Include="Helpers\DiagnosticVerifier.Helper.cs" />
-    <Compile Include="UnitTests.cs" />
+    <Compile Include="Verifiers\DiagnosticResult.cs" />
+    <Compile Include="MemoizationUnitTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -201,6 +195,9 @@
   </ItemGroup>
   <ItemGroup>
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Helpers\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -4,26 +4,97 @@
 
 namespace TestHelper
 {
+    using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.Linq;
     using System.Text;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.Diagnostics;
+    using Microsoft.CodeAnalysis.Text;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     /// <summary>
     /// Superclass of all Unit Tests for DiagnosticAnalyzers
     /// </summary>
-    public abstract partial class DiagnosticVerifier
+    /// <typeparam name="T">Type of the analyzer.</typeparam>
+    public abstract class DiagnosticVerifier<T>
+        where T : DiagnosticAnalyzer
     {
+        private const string DefaultFilePathPrefix = "Test";
+        private const string TestProjectName = "TestProject";
+
+        private static readonly MetadataReference CorlibReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        private static readonly MetadataReference SystemCoreReference = MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location);
+        private static readonly MetadataReference CSharpSymbolsReference = MetadataReference.CreateFromFile(typeof(CSharpCompilation).Assembly.Location);
+        private static readonly MetadataReference CodeAnalysisReference = MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location);
+
         /// <summary>
-        /// Get the CSharp analyzer being tested - to be implemented in non-abstract class
+        /// Create a Document from a string through creating a project that contains it.
         /// </summary>
-        /// <returns>The Diagnostics formatted as a string</returns>
-        protected virtual DiagnosticAnalyzer GetDiagnosticAnalyzer()
+        /// <param name="source">Classes in the form of a string</param>
+        /// <returns>A Document created from the source string</returns>
+        protected static Document CreateDocument(string source)
         {
-            return null;
+            return CreateProject(new[] { source }).Documents.First();
+        }
+
+        /// <summary>
+        /// Given an analyzer and a document to apply it to, run the analyzer and gather an array of diagnostics found in it.
+        /// The returned diagnostics are then ordered by location in the source document.
+        /// </summary>
+        /// <param name="analyzer">The analyzer to run on the documents</param>
+        /// <param name="documents">The Documents that the analyzer will be run on</param>
+        /// <returns>An IEnumerable of Diagnostics that surfaced in the source code, sorted by Location</returns>
+        protected static Diagnostic[] GetSortedDiagnosticsFromDocuments(DiagnosticAnalyzer analyzer, Document[] documents)
+        {
+            var projects = new HashSet<Project>();
+            foreach (var document in documents)
+            {
+                projects.Add(document.Project);
+            }
+
+            var diagnostics = new List<Diagnostic>();
+            foreach (var project in projects)
+            {
+                var compilationWithAnalyzers = project.GetCompilationAsync().Result.WithAnalyzers(ImmutableArray.Create(analyzer));
+                var diags = compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync().Result;
+                foreach (var diag in diags)
+                {
+                    if (diag.Location == Location.None || diag.Location.IsInMetadata)
+                    {
+                        diagnostics.Add(diag);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < documents.Length; i++)
+                        {
+                            var document = documents[i];
+                            var tree = document.GetSyntaxTreeAsync().Result;
+                            if (tree == diag.Location.SourceTree)
+                            {
+                                diagnostics.Add(diag);
+                            }
+                        }
+                    }
+                }
+            }
+
+            var results = SortDiagnostics(diagnostics);
+            diagnostics.Clear();
+            return results;
+        }
+
+        internal static DiagnosticResult CreateExpectation(string message, int row, int line)
+        {
+            return new DiagnosticResult
+            {
+                Id = typeof(T).Name,
+                Message = message,
+                Severity = DiagnosticSeverity.Warning,
+                Locations = new[] { new DiagnosticResultLocation("Test0.cs", line, row) }
+            };
         }
 
         /// <summary>
@@ -32,9 +103,9 @@ namespace TestHelper
         /// </summary>
         /// <param name="source">A class in the form of a string to run the analyzer on</param>
         /// <param name="expected"> DiagnosticResults that should appear after the analyzer is run on the source</param>
-        protected void VerifyDiagnostic(string source, params DiagnosticResult[] expected)
+        internal void VerifyDiagnostic(string source, params DiagnosticResult[] expected)
         {
-            DiagnosticVerifier.VerifyDiagnostics(new[] { source }, this.GetDiagnosticAnalyzer(), expected);
+            DiagnosticVerifier<T>.VerifyDiagnostics(new[] { source }, DiagnosticVerifier<T>.GetDiagnosticAnalyzer(), expected);
         }
 
         /// <summary>
@@ -43,9 +114,9 @@ namespace TestHelper
         /// </summary>
         /// <param name="sources">An array of strings to create source documents from to run the analyzers on</param>
         /// <param name="expected">DiagnosticResults that should appear after the analyzer is run on the sources</param>
-        protected void VerifyDiagnostic(string[] sources, params DiagnosticResult[] expected)
+        internal void VerifyDiagnostic(string[] sources, params DiagnosticResult[] expected)
         {
-            DiagnosticVerifier.VerifyDiagnostics(sources, this.GetDiagnosticAnalyzer(), expected);
+            DiagnosticVerifier<T>.VerifyDiagnostics(sources, DiagnosticVerifier<T>.GetDiagnosticAnalyzer(), expected);
         }
 
         /// <summary>
@@ -93,9 +164,7 @@ namespace TestHelper
                     {
                         Assert.IsTrue(
                             false,
-                            string.Format(
-                                "Expected:\nA project diagnostic with No location\nActual:\n{0}",
-                            FormatDiagnostics(analyzer, actual)));
+                            string.Format("Expected:\nA project diagnostic with No location\nActual:\n{0}", FormatDiagnostics(analyzer, actual)));
                     }
                 }
                 else
@@ -262,6 +331,86 @@ namespace TestHelper
             }
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// Creates an instance of the analyzer that is being tested.
+        /// </summary>
+        /// <returns>The Diagnostics formatted as a string</returns>
+        private static DiagnosticAnalyzer GetDiagnosticAnalyzer()
+        {
+            return Activator.CreateInstance<T>();
+        }
+
+        /// <summary>
+        /// Given classes in the form of strings, their language, and an IDiagnosticAnlayzer to apply to it, return the diagnostics found in the string after converting it to a document.
+        /// </summary>
+        /// <param name="sources">Classes in the form of strings</param>
+        /// <param name="analyzer">The analyzer to be run on the sources</param>
+        /// <returns>An IEnumerable of Diagnostics that surfaced in the source code, sorted by Location</returns>
+        private static Diagnostic[] GetSortedDiagnostics(string[] sources, DiagnosticAnalyzer analyzer)
+        {
+            return GetSortedDiagnosticsFromDocuments(analyzer, GetDocuments(sources));
+        }
+
+        /// <summary>
+        /// Sort diagnostics by location in source document
+        /// </summary>
+        /// <param name="diagnostics">The list of Diagnostics to be sorted</param>
+        /// <returns>An IEnumerable containing the Diagnostics in order of Location</returns>
+        private static Diagnostic[] SortDiagnostics(IEnumerable<Diagnostic> diagnostics)
+        {
+            return diagnostics.OrderBy(d => d.Location.SourceSpan.Start).ToArray();
+        }
+
+        /// <summary>
+        /// Given an array of strings as sources and a language, turn them into a project and return the documents and spans of it.
+        /// </summary>
+        /// <param name="sources">Classes in the form of strings</param>
+        /// <returns>A Tuple containing the Documents produced from the sources and their TextSpans if relevant</returns>
+        private static Document[] GetDocuments(string[] sources)
+        {
+            var project = CreateProject(sources);
+            var documents = project.Documents.ToArray();
+
+            if (sources.Length != documents.Length)
+            {
+                throw new SystemException("Amount of sources did not match amount of Documents created");
+            }
+
+            return documents;
+        }
+
+        /// <summary>
+        /// Create a project using the inputted strings as sources.
+        /// </summary>
+        /// <param name="sources">Classes in the form of strings</param>
+        /// <returns>A Project created out of the Documents created from the source strings</returns>
+        private static Project CreateProject(string[] sources)
+        {
+            string fileNamePrefix = DefaultFilePathPrefix;
+            string fileExt = "cs";
+
+            var projectId = ProjectId.CreateNewId(debugName: TestProjectName);
+
+            var solution = new AdhocWorkspace()
+                .CurrentSolution
+                .AddProject(projectId, TestProjectName, TestProjectName, LanguageNames.CSharp)
+                .AddMetadataReference(projectId, CorlibReference)
+                .AddMetadataReference(projectId, SystemCoreReference)
+                .AddMetadataReference(projectId, CSharpSymbolsReference)
+                .AddMetadataReference(projectId, CodeAnalysisReference);
+
+            int count = 0;
+            foreach (var source in sources)
+            {
+                var newFileName = fileNamePrefix + count + "." + fileExt;
+                var documentId = DocumentId.CreateNewId(projectId, debugName: newFileName);
+                solution = solution.AddDocument(documentId, newFileName, SourceText.From(source));
+                count++;
+            }
+
+            return solution.GetProject(projectId);
         }
     }
 }

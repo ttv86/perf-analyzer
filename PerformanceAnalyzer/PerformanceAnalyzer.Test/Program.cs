@@ -5,12 +5,8 @@
 namespace PerformanceAnalyzer.Test
 {
     using System;
-    using System.Diagnostics;
-    using System.IO;
     using System.Linq;
     using Microsoft.CodeAnalysis;
-    using Microsoft.CodeAnalysis.CSharp;
-    using Microsoft.CodeAnalysis.CSharp.Syntax;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     /// <summary>
@@ -22,65 +18,69 @@ namespace PerformanceAnalyzer.Test
         /// Program main entry point.
         /// </summary>
         /// <param name="args">Command line arguments.</param>
-        private static void Main(string[] args)
+        /// <returns>Returns number of failed tests.</returns>
+        private static int Main(string[] args)
         {
-            UnitTests testInstance = new UnitTests();
-            var testMethods = typeof(UnitTests).GetMethods();
+            ConsoleColor defaultColor = Console.ForegroundColor;
+            int failCount = 0;
+            bool waitEnd = false;
+            if (args.Contains("/wait"))
+            {
+                waitEnd = true;
+            }
+
+            MemoizationUnitTests testInstance = new MemoizationUnitTests();
+            testInstance.TestCodePaths();
+            /*
+            var testMethods = typeof(MemoizationUnitTests).GetMethods();
             foreach (var testMethod in testMethods)
             {
                 if (testMethod.CustomAttributes.Any(x => x.AttributeType == typeof(TestMethodAttribute)))
                 {
-                    testMethod.Invoke(testInstance, new object[0]);
+                    var expectedExceptions = testMethod.CustomAttributes.OfType<ExpectedExceptionAttribute>().Select(x => x.ExceptionType).ToList();
+                    Console.ForegroundColor = defaultColor;
+                    Console.WriteLine(testMethod.Name);
+                    try
+                    {
+                        testMethod.Invoke(testInstance, new object[0]);
+                        if (expectedExceptions.Count == 0)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("OK");
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Expected an exception, but result was a success");
+                            failCount++;
+                        }
+                    }
+                    catch (Exception caughtException)
+                    {
+                        if (expectedExceptions.Contains(caughtException.GetType()))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("OK");
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine(caughtException.GetType().Name + ": " + caughtException.Message);
+                            failCount++;
+                        }
+                    }
                 }
             }
-        }
-
-        private static void X()
-        {
-            string currentPath = Environment.CurrentDirectory;
-            string source = File.ReadAllText(currentPath + @"TestClass.cs");
-
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
-            var root = (CompilationUnitSyntax)tree.GetRoot();
-
-            string winPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            MetadataReference[] references = new MetadataReference[]
+            // Restore default text color;
+            Console.ForegroundColor = defaultColor;
+            */
+            if (waitEnd)
             {
-                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"),
-                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\System.dll"),
-                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\System.Core.dll"),
-            };
-
-            CSharpCompilationOptions options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
-            CSharpCompilation comp = CSharpCompilation.Create("Tester", new SyntaxTree[] { tree }, references, options);
-
-            SemanticModel semModel = comp.GetSemanticModel(tree, true);
-
-            PerformanceAnalyzer.MemoizationAnalyzer analyzer = new PerformanceAnalyzer.MemoizationAnalyzer();
-            analyzer.SemanticModel = semModel;
-            var memberAccesses = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
-            foreach (var method in memberAccesses)
-            {
-                analyzer.AnalyzeMethod(method, ShowMessage);
+                Console.WriteLine("Press any key to continue. . .");
+                Console.ReadKey();
             }
 
-            var emitter = comp.Emit(
-                currentPath + @"\test.exe",
-                currentPath + @"\test.pdb");
-            if (!emitter.Success)
-            {
-                emitter.Diagnostics.ToString();
-            }
-
-            Console.WriteLine("Press any key to continue");
-            Console.ReadKey();
-        }
-
-        private static void ShowMessage(Diagnostic diagnostic)
-        {
-            string msg = diagnostic.GetMessage();
-            Debug.WriteLine(msg);
-            Console.WriteLine(msg);
+            return failCount;
         }
     }
 }

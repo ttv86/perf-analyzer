@@ -15,7 +15,7 @@ namespace PerformanceAnalyzer
     /// Makes sure that a collection (either a dictionary or a list) isn't searched multiple times with the same search value.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public sealed class MemoizationAnalyzer : DiagnosticAnalyzer
+    public sealed class MemoizationAnalyzer : AnalyzerBase
     {
         private const string TitleText = "Collection should not be searched multiple times";
         private const string MessageText = "Collection {0} is searched multiple times with key {1}.";
@@ -32,8 +32,6 @@ namespace PerformanceAnalyzer
             matcher = new ElementMatcher(this);
         }
 
-        internal SemanticModel SemanticModel { get; set; }
-
         /// <summary>
         /// Returns an array of analyzer descriptions to be used in Visual Studio analyses.
         /// </summary>
@@ -45,28 +43,10 @@ namespace PerformanceAnalyzer
             }
         }
 
-        public override void Initialize(AnalysisContext context)
-        {
-            context.RegisterSemanticModelAction(AnalyzeModel);
-        }
-
-        private void AnalyzeModel(SemanticModelAnalysisContext context)
-        {
-            this.SemanticModel = context.SemanticModel;
-            var methods = context.SemanticModel.SyntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
-            foreach (var method in methods)
-            {
-                if (!context.CancellationToken.IsCancellationRequested)
-                {
-                    AnalyzeMethod(method, context.ReportDiagnostic);
-                }
-            }
-        }
-
         /// <summary>
         /// Checks one method. If errors are found, call an optional callback method.
         /// </summary>
-        public void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback = null)
+        protected override void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback)
         {
             // A dictionary of how many times each collection is read using a given variable.
             readCounts = new Dictionary<Tuple<ExpressionSyntax, ExpressionSyntax>, Counter>(matcher);
