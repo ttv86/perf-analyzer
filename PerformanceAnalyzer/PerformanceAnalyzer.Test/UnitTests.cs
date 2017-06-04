@@ -1,27 +1,34 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using TestHelper;
-using PerformanceAnalyzer;
+﻿// <copyright file="UnitTests.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
 
 namespace PerformanceAnalyzer.Test
 {
-    [TestClass]
-    public class UnitTest : CodeFixVerifier
-    {
+    using System;
+    using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CodeFixes;
+    using Microsoft.CodeAnalysis.Diagnostics;
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using PerformanceAnalyzer;
+    using TestHelper;
 
-        //No diagnostics expected to show up
+    [TestClass]
+    public class UnitTests : CodeFixVerifier
+    {
+        /// <summary>
+        /// No diagnostics expected to show up.
+        /// </summary>
         [TestMethod]
         public void TestMethod1()
         {
-            var test = @"";
+            var test = string.Empty;
 
-            VerifyCSharpDiagnostic(test);
+            this.VerifyDiagnostic(test);
         }
 
-        //Diagnostic and CodeFix both triggered and checked for
+        /// <summary>
+        /// Diagnostic and CodeFix both triggered and checked for.
+        /// </summary>
         [TestMethod]
         public void TestMethod2()
         {
@@ -42,15 +49,12 @@ namespace PerformanceAnalyzer.Test
             var expected = new DiagnosticResult
             {
                 Id = "PerformanceAnalyzer",
-                Message = String.Format("Type name '{0}' contains lowercase letters", "TypeName"),
+                Message = string.Format("Type name '{0}' contains lowercase letters", "TypeName"),
                 Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 11, 15)
-                        }
+                Locations = new[] { new DiagnosticResultLocation("Test0.cs", 11, 15) }
             };
 
-            VerifyCSharpDiagnostic(test, expected);
+            this.VerifyDiagnostic(test, expected);
 
             var fixtest = @"
     using System;
@@ -66,15 +70,15 @@ namespace PerformanceAnalyzer.Test
         {   
         }
     }";
-            VerifyCSharpFix(test, fixtest);
+            this.VerifyCSharpFix(test, fixtest);
         }
 
-        /*protected override CodeFixProvider GetCSharpCodeFixProvider()
+        protected override CodeFixProvider GetCodeFixProvider()
         {
             return new PerformanceAnalyzerCodeFixProvider();
-        }*/
+        }
 
-        protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
+        protected override DiagnosticAnalyzer GetDiagnosticAnalyzer()
         {
             return new PerformanceAnalyzer.DictionaryAnalyzer();
         }

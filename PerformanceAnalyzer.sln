@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Test", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Vsix", "PerformanceAnalyzer\PerformanceAnalyzer.Vsix\PerformanceAnalyzer.Vsix.csproj", "{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTester", "ConsoleTester\ConsoleTester.csproj", "{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitStuff", "GitStuff", "{F74261AE-F9FE-436B-8B31-63496BB44385}"
 	ProjectSection(SolutionItems) = preProject
 		.gitattributes = .gitattributes
@@ -37,10 +35,6 @@ Global
 		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BDAA8B85-8334-46C0-B3B7-EBE030D8CB8E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

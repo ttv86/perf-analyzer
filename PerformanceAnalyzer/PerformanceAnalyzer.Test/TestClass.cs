@@ -1,10 +1,14 @@
-﻿namespace ConsoleTester
+﻿// <copyright file="TestClass.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
+
+namespace ConsoleTester
 {
     using System.Collections.Generic;
 
     internal class TestClass
     {
-        //IDictionary<string, double> fieldDict = null;
+        ////IDictionary<string, double> fieldDict = null;
 
         public void Test()
         {
@@ -38,6 +42,7 @@
                 i++;
                 localDict[i].ToString();
             }
+
             {
                 IDictionary<string, double> localDict = null;
                 localDict["hiiri"].ToString();
