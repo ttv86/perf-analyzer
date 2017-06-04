@@ -37,7 +37,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CodeFixProvider.cs" />
-    <Compile Include="DictionaryAnalyzer.cs" />
+    <Compile Include="MemoizationAnalyzer.cs" />
     <Compile Include="ElementMatcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

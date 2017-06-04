@@ -15,16 +15,6 @@ namespace PerformanceAnalyzer.Test
     [TestClass]
     public class UnitTests : CodeFixVerifier
     {
-        /// <summary>
-        /// No diagnostics expected to show up.
-        /// </summary>
-        [TestMethod]
-        public void TestMethod1()
-        {
-            var test = string.Empty;
-
-            this.VerifyDiagnostic(test);
-        }
 
         /// <summary>
         /// Diagnostic and CodeFix both triggered and checked for.
@@ -32,20 +22,22 @@ namespace PerformanceAnalyzer.Test
         [TestMethod]
         public void TestMethod2()
         {
-            var test = @"
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
-    using System.Diagnostics;
+            var test = @"using System.Collections.Generic;
 
-    namespace ConsoleApplication1
+internal class TestClass
+{
+    public void Test()
     {
-        class TypeName
-        {   
-        }
-    }";
+        int i = 4;
+        IList<double> localList = new List<double>();
+        localList[i].ToString();
+        localList[i].ToString();
+        i++;
+        localList[i].ToString();
+        i++;
+        localList[i].ToString();
+    }
+}";
             var expected = new DiagnosticResult
             {
                 Id = "PerformanceAnalyzer",
@@ -55,32 +47,22 @@ namespace PerformanceAnalyzer.Test
             };
 
             this.VerifyDiagnostic(test, expected);
-
-            var fixtest = @"
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
-    using System.Diagnostics;
-
-    namespace ConsoleApplication1
-    {
-        class TYPENAME
-        {   
-        }
-    }";
-            this.VerifyCSharpFix(test, fixtest);
         }
 
-        protected override CodeFixProvider GetCodeFixProvider()
+        /// <summary>
+        /// No diagnostics expected to show up.
+        /// </summary>
+        [TestMethod]
+        public void TestForEmptyInput()
         {
-            return new PerformanceAnalyzerCodeFixProvider();
+            var test = string.Empty;
+
+            this.VerifyDiagnostic(test);
         }
 
         protected override DiagnosticAnalyzer GetDiagnosticAnalyzer()
         {
-            return new PerformanceAnalyzer.DictionaryAnalyzer();
+            return new PerformanceAnalyzer.MemoizationAnalyzer();
         }
     }
 }

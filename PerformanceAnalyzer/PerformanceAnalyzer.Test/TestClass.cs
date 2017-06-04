@@ -32,10 +32,9 @@ namespace ConsoleTester
             */
             {
                 int i = 4;
-                IDictionary<int, double> localDict = null;
-                IDictionary<int, IDictionary<int, double>> localDict2 = null;
+                IList<double> localDict = null;
+                IList<IDictionary<int, double>> localDict2 = null;
                 localDict[i].ToString();
-                localDict2.TryGetValue(2, out localDict);
                 localDict[i].ToString();
                 i++;
                 localDict[i].ToString();

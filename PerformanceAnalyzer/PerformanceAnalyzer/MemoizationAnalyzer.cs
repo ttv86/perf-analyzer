@@ -11,29 +11,32 @@ namespace PerformanceAnalyzer
     using Microsoft.CodeAnalysis.Diagnostics;
     using Microsoft.CodeAnalysis.Text;
 
+    /// <summary>
+    /// Makes sure that a collection (either a dictionary or a list) isn't searched multiple times with the same search value.
+    /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public sealed class DictionaryAnalyzer : DiagnosticAnalyzer
+    public sealed class MemoizationAnalyzer : DiagnosticAnalyzer
     {
-        private const string TitleText = "Dictionary should not be searched multiple times";
-        private const string MessageText = "Dictionary {0} is searched multiple times with key {1}.";
+        private const string TitleText = "Collection should not be searched multiple times";
+        private const string MessageText = "Collection {0} is searched multiple times with key {1}.";
 
-        private static DiagnosticDescriptor descriptor = new DiagnosticDescriptor(nameof(DictionaryAnalyzer), TitleText, MessageText, "Performance", DiagnosticSeverity.Warning, true);
+        private static DiagnosticDescriptor descriptor = new DiagnosticDescriptor(nameof(MemoizationAnalyzer), TitleText, MessageText, "Performance", DiagnosticSeverity.Warning, true);
         private Dictionary<Tuple<ExpressionSyntax, ExpressionSyntax>, Counter> readCounts = null;
         private ElementMatcher matcher;
 
-        public DictionaryAnalyzer()
+        /// <summary>
+        /// Creates new instance of MemoizationAnalyzer class.
+        /// </summary>
+        public MemoizationAnalyzer()
         {
             matcher = new ElementMatcher(this);
         }
 
-        public DictionaryAnalyzer(SemanticModel semModel)
-            : this()
-        {
-            this.SemanticModel = semModel;
-        }
-
         internal SemanticModel SemanticModel { get; set; }
 
+        /// <summary>
+        /// Returns an array of analyzer descriptions to be used in Visual Studio analyses.
+        /// </summary>
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
             get
@@ -61,12 +64,16 @@ namespace PerformanceAnalyzer
         }
 
         /// <summary>
-        /// Checks one given node from the syntax tree. If errors are found, call an optional callback method.
+        /// Checks one method. If errors are found, call an optional callback method.
         /// </summary>
         public void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback = null)
         {
+            // A dictionary of how many times each collection is read using a given variable.
             readCounts = new Dictionary<Tuple<ExpressionSyntax, ExpressionSyntax>, Counter>(matcher);
+
+            // A list of already processed nodes. No need to process it more than once.
             List<SyntaxNode> skipped = new List<SyntaxNode>();
+
             foreach (var node in method.Body.DescendantNodes())
             {
                 // This node was already processed. No need to process it again.
@@ -85,12 +92,12 @@ namespace PerformanceAnalyzer
                 // method();
                 if (node is MemberAccessExpressionSyntax memberAccess)
                 {
-                    if (IsDictionaryMethod(memberAccess, SemanticModel, "ContainsKey", "TryGetValue"))
+                    if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Contains", "ContainsKey", "TryGetValue"))
                     {
                         // These methods do not change the state of the dictionary. We shouldn't keep calling them again with same parameters until the state has changed.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count >= 1))
                         {
-                            ReadDictionary(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
+                            ReadValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                         else
@@ -98,13 +105,13 @@ namespace PerformanceAnalyzer
                             throw new NotSupportedException();
                         }
                     }
-                    else if (IsDictionaryMethod(memberAccess, SemanticModel, "Add"))
+                    else if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Add"))
                     {
                         // Add changes the state of the dictionary for 1 item.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 2))
                         {
                             // Add should have 2 parameters
-                            WriteDictionary(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
+                            WriteValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                         else
@@ -112,7 +119,7 @@ namespace PerformanceAnalyzer
                             throw new NotSupportedException();
                         }
                     }
-                    else if (IsDictionaryMethod(memberAccess, SemanticModel, "Clear"))
+                    else if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Clear"))
                     {
                         // Clear changes the state of the dictionary for all items.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 0))
@@ -130,12 +137,14 @@ namespace PerformanceAnalyzer
 
                 if (node is AssignmentExpressionSyntax assignmentExpression)
                 {
-                    if (IsDictionary(assignmentExpression.Left))
+                    if (IsDictionaryOrList(assignmentExpression.Left))
                     {
+                        // Reference to a dictionary was changed. No need to track previous instance anymore.
                         ClearDictionary(assignmentExpression.Left);
                     }
                     else
                     {
+                        // Value of a method was changed. It can be now considered as a new value.
                         this.VariableChanged(assignmentExpression.Left);
                     }
                 }
@@ -144,11 +153,11 @@ namespace PerformanceAnalyzer
                 // var value = dictionary[key];
                 if (node is ElementAccessExpressionSyntax elementAccess)
                 {
-                    if (IsDictionary(elementAccess.Expression))
+                    if (IsDictionaryOrList(elementAccess.Expression))
                     {
                         if (elementAccess.ArgumentList.Arguments.Count() == 1)
                         {
-                            ReadDictionary(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression);
+                            ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                     }
@@ -163,64 +172,23 @@ namespace PerformanceAnalyzer
                 if (node is AssignmentExpressionSyntax assignment)
                 {
                     var target = assignment.Left;
-                    if (IsDictionary(assignment.Left))
+                    if (IsDictionaryOrList(assignment.Left))
                     {
                         var tuple = GetDictionaryAccess(assignment.Left);
                         if (tuple != null)
                         {
-                            WriteDictionary(tuple.Item1, tuple.Item2);
+                            WriteValue(tuple.Item1, tuple.Item2);
                             skipped.Add(assignment.Left);
                             continue;
                         }
                     }
                 }
 
-                // Unary methods - prefix
-                // ++dict[key];
-                if ((node is PrefixUnaryExpressionSyntax prefixUnary) && ((prefixUnary.OperatorToken.Text == "++") || (prefixUnary.OperatorToken.Text == "--")))
+                // Unary operations execute both read and write actions
+                if (this.TestUnary(node, skipped))
                 {
-                    if (IsDictionary(prefixUnary.Operand))
-                    {
-                        var tuple = GetDictionaryAccess(prefixUnary.Operand);
-                        if (tuple != null)
-                        {
-                            WriteDictionary(tuple.Item1, tuple.Item2);
-                            skipped.Add(prefixUnary.Operand);
-                            continue;
-                        }
-                        else
-                        {
-                            throw new NotSupportedException();
-                        }
-                    }
-                    else
-                    {
-                        VariableChanged(prefixUnary.Operand);
-                    }
-                }
-
-                // Unary methods - postfix
-                // dict[key]++;
-                if ((node is PostfixUnaryExpressionSyntax postfixUnary) && ((postfixUnary.OperatorToken.Text == "++") || (postfixUnary.OperatorToken.Text == "--")))
-                {
-                    if (IsDictionary(postfixUnary.Operand))
-                    {
-                        var tuple = GetDictionaryAccess(postfixUnary.Operand);
-                        if (tuple != null)
-                        {
-                            WriteDictionary(tuple.Item1, tuple.Item2);
-                            skipped.Add(postfixUnary.Operand);
-                            continue;
-                        }
-                        else
-                        {
-                            throw new NotSupportedException();
-                        }
-                    }
-                    else
-                    {
-                        VariableChanged(postfixUnary.Operand);
-                    }
+                    // Node was a unary operation. No need to process it more.
+                    continue;
                 }
             }
 
@@ -234,6 +202,63 @@ namespace PerformanceAnalyzer
                     callback?.Invoke(Diagnostic.Create(descriptor, location, dictName, x.Key.Item2.ToString()));
                 }
             }
+        }
+
+        /// <summary>
+        /// Do actions on unary nodes (x++, x--, ++x it --x).
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="skippedNodes"></param>
+        /// <returns></returns>
+        private bool TestUnary(SyntaxNode node, ICollection<SyntaxNode> skippedNodes)
+        {
+            // Unary prefix (++x, --x)
+            if ((node is PrefixUnaryExpressionSyntax prefixUnary) && ((prefixUnary.OperatorToken.Text == "++") || (prefixUnary.OperatorToken.Text == "--")))
+            {
+                if (IsDictionaryOrList(prefixUnary.Operand))
+                {
+                    var tuple = GetDictionaryAccess(prefixUnary.Operand);
+                    if (tuple != null)
+                    {
+                        WriteValue(tuple.Item1, tuple.Item2);
+                        skippedNodes.Add(prefixUnary.Operand);
+                        return true;
+                    }
+                    else
+                    {
+                        throw new NotSupportedException();
+                    }
+                }
+                else
+                {
+                    VariableChanged(prefixUnary.Operand);
+                }
+            }
+
+            // Unary postfix (x++, x--)
+            if ((node is PostfixUnaryExpressionSyntax postfixUnary) && ((postfixUnary.OperatorToken.Text == "++") || (postfixUnary.OperatorToken.Text == "--")))
+            {
+                if (IsDictionaryOrList(postfixUnary.Operand))
+                {
+                    var tuple = GetDictionaryAccess(postfixUnary.Operand);
+                    if (tuple != null)
+                    {
+                        WriteValue(tuple.Item1, tuple.Item2);
+                        skippedNodes.Add(postfixUnary.Operand);
+                        return true;
+                    }
+                    else
+                    {
+                        throw new NotSupportedException();
+                    }
+                }
+                else
+                {
+                    VariableChanged(postfixUnary.Operand);
+                }
+            }
+
+            return false;
         }
 
         private void VariableChanged(ExpressionSyntax expression)
@@ -263,9 +288,9 @@ namespace PerformanceAnalyzer
         }
 
         /// <summary>
-        /// A dictionary value was read. Increase the needed value counter.
+        /// A collection value was read. Increase the needed value counter.
         /// </summary>
-        private void ReadDictionary(ExpressionSyntax expression, ExpressionSyntax key)
+        private void ReadValue(ExpressionSyntax expression, ExpressionSyntax key)
         {
             System.Diagnostics.Debug.WriteLine($"Reading {expression} by key {key} ({GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
@@ -279,9 +304,9 @@ namespace PerformanceAnalyzer
         }
 
         /// <summary>
-        /// A dictionary value was changed. Reset the needed value counter.
+        /// A collection value was changed. Reset the needed value counter.
         /// </summary>
-        private void WriteDictionary(ExpressionSyntax expression, ExpressionSyntax key)
+        private void WriteValue(ExpressionSyntax expression, ExpressionSyntax key)
         {
             System.Diagnostics.Debug.WriteLine($"Writing {expression} by key {key} ({GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
@@ -325,7 +350,12 @@ namespace PerformanceAnalyzer
             return text;
         }
 
-        private bool IsDictionary(ExpressionSyntax expression)
+        /// <summary>
+        /// Tests if given expression is a reference to a dictionary or list types.
+        /// </summary>
+        /// <param name="expression">Expression to be tested.</param>
+        /// <returns>True is expression is a reference to a dictionary or a list, false otherwise.</returns>
+        private bool IsDictionaryOrList(ExpressionSyntax expression)
         {
             if (expression is ElementAccessExpressionSyntax ea)
             {
@@ -348,7 +378,7 @@ namespace PerformanceAnalyzer
                 {
                     if (typeProperty.GetValue(orig) is ITypeSymbol typeSymbol)
                     {
-                        if (IsDictionary(typeSymbol))
+                        if (IsDictionaryOrList(typeSymbol))
                         {
                             return true;
                         }
@@ -359,7 +389,12 @@ namespace PerformanceAnalyzer
             return false;
         }
 
-        internal static bool IsDictionary(ITypeSymbol typeSymbol)
+        /// <summary>
+        /// Tests if given symbol is a reference to a dictionary or list types.
+        /// </summary>
+        /// <param name="typeSymbol">Symbol to be tested.</param>
+        /// <returns>True is symbol is a reference to a dictionary or a list, false otherwise.</returns>
+        internal static bool IsDictionaryOrList(ITypeSymbol typeSymbol)
         {
             var orig = typeSymbol.OriginalDefinition;
             if (orig.ContainingAssembly == null)
@@ -367,9 +402,18 @@ namespace PerformanceAnalyzer
                 return false;
             }
 
-            if ((orig.ContainingAssembly.Name == "mscorlib") && ((orig.Name == "Dictionary") || (orig.Name == "IDictionary") || (orig.Name == "IReadOnlyDictionary")))
+            // Test only types from 
+            if (orig.ContainingAssembly.Name == "mscorlib")
             {
-                return true;
+                if ((orig.Name == "List") || (orig.Name == "IList") || (orig.Name == "IReadOnlyList"))
+                {
+                    return true;
+                }
+
+                if ((orig.Name == "Dictionary") || (orig.Name == "IDictionary") || (orig.Name == "IReadOnlyDictionary"))
+                {
+                    return true;
+                }
             }
 
             return false;
@@ -378,9 +422,9 @@ namespace PerformanceAnalyzer
         /// <summary>
         /// Checks if the MemberAccess is calling any of the specified methods for the dictionary.
         /// </summary>
-        internal bool IsDictionaryMethod(MemberAccessExpressionSyntax access, SemanticModel semModel, params string[] methodNames)
+        internal bool IsDictionaryOrListMethod(MemberAccessExpressionSyntax access, SemanticModel semModel, params string[] methodNames)
         {
-            if (!IsDictionary(access.Expression))
+            if (!IsDictionaryOrList(access.Expression))
             {
                 return false;
             }
@@ -398,10 +442,20 @@ namespace PerformanceAnalyzer
                 this.Max = this.Current = initialValue;
             }
 
+            /// <summary>
+            /// Gets the current value of the counter.
+            /// </summary>
             public int Current { get; private set; }
 
+            /// <summary>
+            /// Gets the maximum value the counter ever has had.
+            /// </summary>
             public int Max { get; private set; }
 
+            /// <summary>
+            /// Increases counter value by one. Stores also the span of the affected area.
+            /// </summary>
+            /// <param name="node"></param>
             public void Increase(SyntaxNode node)
             {
                 Current++;
@@ -412,16 +466,21 @@ namespace PerformanceAnalyzer
 
                 if (start < 0)
                 {
+                    // This is the first one. Use span as is.
                     start = node.Span.Start;
                     end = node.Span.End;
                 }
                 else
                 {
+                    // There was already a span. Combine both spans to a new one.
                     start = Math.Min(node.SpanStart, start);
                     end = Math.Max(node.Span.End, start);
                 }
             }
 
+            /// <summary>
+            /// Resets current count back to zero. Also reset span counter.
+            /// </summary>
             public void Reset()
             {
                 start = -1;

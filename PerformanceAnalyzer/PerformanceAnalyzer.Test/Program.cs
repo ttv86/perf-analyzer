@@ -11,21 +11,44 @@ namespace PerformanceAnalyzer.Test
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.CSharp.Syntax;
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+    /// <summary>
+    /// Main executable that runs all the tests included in this project.
+    /// </summary>
     internal class Program
     {
+        /// <summary>
+        /// Program main entry point.
+        /// </summary>
+        /// <param name="args">Command line arguments.</param>
         private static void Main(string[] args)
         {
-            string source = File.ReadAllText(@"d:\users\timo\documents\visual studio 2017\Projects\PerformanceAnalyzer\ConsoleTester\TestClass.cs");
+            UnitTests testInstance = new UnitTests();
+            var testMethods = typeof(UnitTests).GetMethods();
+            foreach (var testMethod in testMethods)
+            {
+                if (testMethod.CustomAttributes.Any(x => x.AttributeType == typeof(TestMethodAttribute)))
+                {
+                    testMethod.Invoke(testInstance, new object[0]);
+                }
+            }
+        }
+
+        private static void X()
+        {
+            string currentPath = Environment.CurrentDirectory;
+            string source = File.ReadAllText(currentPath + @"TestClass.cs");
 
             SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
             var root = (CompilationUnitSyntax)tree.GetRoot();
 
+            string winPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
             MetadataReference[] references = new MetadataReference[]
             {
-                MetadataReference.CreateFromFile(@"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"),
-                MetadataReference.CreateFromFile(@"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll"),
-                MetadataReference.CreateFromFile(@"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Core.dll"),
+                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"),
+                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\System.dll"),
+                MetadataReference.CreateFromFile(winPath + @"\Microsoft.NET\Framework64\v4.0.30319\System.Core.dll"),
             };
 
             CSharpCompilationOptions options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
@@ -33,7 +56,8 @@ namespace PerformanceAnalyzer.Test
 
             SemanticModel semModel = comp.GetSemanticModel(tree, true);
 
-            PerformanceAnalyzer.DictionaryAnalyzer analyzer = new PerformanceAnalyzer.DictionaryAnalyzer(semModel);
+            PerformanceAnalyzer.MemoizationAnalyzer analyzer = new PerformanceAnalyzer.MemoizationAnalyzer();
+            analyzer.SemanticModel = semModel;
             var memberAccesses = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
             foreach (var method in memberAccesses)
             {
@@ -41,8 +65,8 @@ namespace PerformanceAnalyzer.Test
             }
 
             var emitter = comp.Emit(
-                @"D:\Users\TIMO\Documents\visual studio 2015\Projects\RoslynTest\RoslynTest\test.exe",
-                @"D:\Users\TIMO\Documents\visual studio 2015\Projects\RoslynTest\RoslynTest\test.pdb");
+                currentPath + @"\test.exe",
+                currentPath + @"\test.pdb");
             if (!emitter.Success)
             {
                 emitter.Diagnostics.ToString();

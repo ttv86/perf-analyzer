@@ -8,9 +8,9 @@
 
     internal sealed class ElementMatcher : IEqualityComparer<ExpressionSyntax>, IEqualityComparer<Tuple<ExpressionSyntax, ExpressionSyntax>>
     {
-        private DictionaryAnalyzer analyzer;
+        private MemoizationAnalyzer analyzer;
 
-        public ElementMatcher(DictionaryAnalyzer analyzer)
+        public ElementMatcher(MemoizationAnalyzer analyzer)
         {
             this.analyzer = analyzer;
         }

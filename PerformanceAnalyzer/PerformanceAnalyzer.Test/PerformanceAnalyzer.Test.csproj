@@ -171,7 +171,9 @@
   <ItemGroup>
     <Compile Include="Helpers\DiagnosticResultLocation.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="TestClass.cs" />
+    <Compile Include="TestClass.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Verifiers\CodeFixVerifier.cs" />
     <Compile Include="Verifiers\DiagnosticVerifier.cs" />
     <Compile Include="Helpers\CodeFixVerifier.Helper.cs" />
