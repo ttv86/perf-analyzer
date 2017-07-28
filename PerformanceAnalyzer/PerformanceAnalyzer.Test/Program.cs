@@ -29,8 +29,8 @@ namespace PerformanceAnalyzer.Test
                 waitEnd = true;
             }
 
-            MemoizationUnitTests testInstance = new MemoizationUnitTests();
-            testInstance.TestCodePaths();
+            CodePathTests testInstance = new CodePathTests();
+            testInstance.TestIfPath();
             /*
             var testMethods = typeof(MemoizationUnitTests).GetMethods();
             foreach (var testMethod in testMethods)

@@ -34,14 +34,14 @@ internal class TestClass
     }
 }";
             var expected = CreateExpectation("Collection localList is searched multiple times with key i.", row: 9, line: 14);
-            this.VerifyDiagnostic(testCode, expected);
+            this.VerifyDiagnostic(testCode, null, expected);
         }
 
         /// <summary>
         /// Checks that if we read from the list twice with the same key, but on different code paths we don't get an error.
         /// </summary>
         [TestMethod]
-        public void TestCodePaths()
+        public void TestDictionarySearchOnDifferentCodePaths()
         {
             var testCode = @"using System.Collections.Generic;
 

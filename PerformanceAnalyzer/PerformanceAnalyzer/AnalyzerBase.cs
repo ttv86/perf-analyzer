@@ -20,48 +20,81 @@
 
         protected abstract void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback);
 
-        private ExecutionPath.Node SplitAndAnalyzeBlock(ExecutionPath.Node prevNode, StatementSyntax statement, Action<Diagnostic> callback)
+        protected ExecutionPath SplitMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback)
+        {
+            ExecutionPath path = new ExecutionPath();
+            ExecutionPath.Node startOfMethod = path.Root;
+            startOfMethod.Name = "Start of method";
+            ExecutionPath.Node endOfMethod = new ExecutionPath.Node()
+            {
+                Name = "End of method"
+            };
+
+            SplitInfo splitInfo = new SplitInfo() { Callback = callback, MethodEndNode = endOfMethod };
+            ExecutionPath.Node lastNode = SplitAndAnalyzeBlock(startOfMethod, method.Body, splitInfo);
+            if (lastNode != null)
+            {
+                lastNode.CreatePathTo(endOfMethod);
+            }
+
+            return path;
+        }
+
+        private ExecutionPath.Node SplitAndAnalyzeBlock(ExecutionPath.Node prevNode, StatementSyntax statement, SplitInfo splitInfo)
         {
             if (statement is BlockSyntax block)
             {
-                return SplitAndAnalyzeBlock(prevNode, block.Statements, callback);
+                return SplitAndAnalyzeBlock(prevNode, block.Statements, splitInfo);
             }
             else
             {
-                return SplitAndAnalyzeBlock(prevNode, new StatementSyntax[] { statement }, callback);
+                return SplitAndAnalyzeBlock(prevNode, new StatementSyntax[] { statement }, splitInfo);
             }
         }
-
-        private ExecutionPath.Node SplitAndAnalyzeBlock(ExecutionPath.Node prevNode, IEnumerable<StatementSyntax> statements, Action<Diagnostic> callback)
+        
+        /// <summary>
+        /// Returns new end node for a block of statements, or a null if all code paths leave the block.
+        /// </summary>
+        private ExecutionPath.Node SplitAndAnalyzeBlock(ExecutionPath.Node startNode, IEnumerable<StatementSyntax> statements, SplitInfo splitInfo)
         {
-            var resultNode = new ExecutionPath.Node();
-            ExecutionPath.Edge edge = prevNode.CreatePathTo(resultNode);
+            ExecutionPath.Node prevNode = startNode;
             foreach (StatementSyntax statement in statements)
             {
+                ExecutionPath.Node statementNode = new ExecutionPath.Node() { SyntaxNode = statement };
+                prevNode.CreatePathTo(statementNode);
                 switch (statement)
                 {
                     // If & switch:
                     case IfStatementSyntax ifStatement:
-                        edge.Statements.Add(ifStatement.Condition);
-                        ExecutionPath.Node ifStartNode = resultNode;
-                        ExecutionPath.Node ifEndNode = new ExecutionPath.Node();
+                        ExecutionPath.Node beginIfNode = statementNode;
+                        statementNode.Name = "Begin if";
+                        ExecutionPath.Node endIfNode = new ExecutionPath.Node() { Name = "End if" };
+
                         ExecutionPath.Node newResultNode = new ExecutionPath.Node();
 
-                        ExecutionPath.Node ifBodyEndNode = SplitAndAnalyzeBlock(ifStartNode, ifStatement.Statement, callback);
-                        ifBodyEndNode.CreatePathTo(ifEndNode);
+                        ExecutionPath.Node ifBodyEndNode = SplitAndAnalyzeBlock(beginIfNode, ifStatement.Statement, splitInfo);
+                        ifBodyEndNode?.CreatePathTo(endIfNode);
 
                         if (ifStatement.Else?.Statement != null)
                         {
-                            ExecutionPath.Node elseBodyEndNode = SplitAndAnalyzeBlock(ifStartNode, ifStatement.Else.Statement, callback);
-                            elseBodyEndNode.CreatePathTo(ifEndNode);
+                            ExecutionPath.Node elseBodyEndNode = SplitAndAnalyzeBlock(beginIfNode, ifStatement.Else.Statement, splitInfo);
+                            elseBodyEndNode?.CreatePathTo(endIfNode);
                         }
                         else
                         {
-                            ifStartNode.CreatePathTo(ifEndNode);
+                            // If there is no else statement, jump from the if to the end of its body.
+                            beginIfNode.CreatePathTo(endIfNode);
                         }
 
-                        resultNode = newResultNode;
-                        edge = ifEndNode.CreatePathTo(newResultNode);
+                        if (endIfNode.PreviousNodes.Count == 0)
+                        {
+                            return null; // No execution paths left. Leave current block.
+                        }
+                        else
+                        {
+                            statementNode = endIfNode;
+                        }
+
                         break;
                     case SwitchStatementSyntax switchStatement:
                         break;
@@ -80,21 +113,41 @@
 
                     // Continue & Break:
                     case ContinueStatementSyntax continueStatement:
-                        break;
+                        prevNode.CreatePathTo(splitInfo.LoopStartNode);
+                        return null;
                     case BreakStatementSyntax breakStatement:
-                        break;
+                        prevNode.CreatePathTo(splitInfo.LoopEndNode);
+                        return null;
 
                     // Return:
                     case ReturnStatementSyntax returnStatement:
-                        break;
+                        statementNode.CreatePathTo(splitInfo.MethodEndNode);
+                        return null;
 
-                    default:
-                        edge.Statements.Add(statement);
-                        break;
+                    //BlockSyntax
+                    //CheckedStatementSyntax
+                    //ForEachVariableStatementSyntax
+                    //EmptyStatementSyntax
+                    //ExpressionStatementSyntax
+                    //FixedStatementSyntax
+                    //GotoStatementSyntax
+                    //LabeledStatementSyntax
+                    //LocalDeclarationStatementSyntax
+                    //LocalFunctionStatementSyntax
+                    //LockStatementSyntax
+                    //ThrowStatementSyntax
+                    //UnsafeStatementSyntax
+                    //UsingStatementSyntax
+                    //YieldStatementSyntax
+                    //default:
+                    //    edge.Statements.Add(statement);
+                    //    break;
                 }
+
+                prevNode = statementNode;
             }
 
-            return resultNode;
+            return prevNode;
         }
 
         private void AnalyzeModel(SemanticModelAnalysisContext context)
@@ -105,11 +158,20 @@
             {
                 if (!context.CancellationToken.IsCancellationRequested)
                 {
-                    ExecutionPath path = new ExecutionPath();
-                    SplitAndAnalyzeBlock(path.Root, method.Body.Statements, context.ReportDiagnostic);
-                    path.ToString();
+                    var executionPath = SplitMethod(method, context.ReportDiagnostic);
                 }
             }
+        }
+
+        private class SplitInfo
+        {
+            public Action<Diagnostic> Callback { get; set; }
+
+            public ExecutionPath.Node MethodEndNode { get; set; }
+
+            public ExecutionPath.Node LoopStartNode { get; set; }
+
+            public ExecutionPath.Node LoopEndNode { get; set; }
         }
     }
 }

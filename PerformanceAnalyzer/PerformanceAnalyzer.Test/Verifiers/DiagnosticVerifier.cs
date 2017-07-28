@@ -103,9 +103,11 @@ namespace TestHelper
         /// </summary>
         /// <param name="source">A class in the form of a string to run the analyzer on</param>
         /// <param name="expected"> DiagnosticResults that should appear after the analyzer is run on the source</param>
-        internal void VerifyDiagnostic(string source, params DiagnosticResult[] expected)
+        internal void VerifyDiagnostic(string source, Action<T> analyzerCreated = null, params DiagnosticResult[] expected)
         {
-            DiagnosticVerifier<T>.VerifyDiagnostics(new[] { source }, DiagnosticVerifier<T>.GetDiagnosticAnalyzer(), expected);
+            T analyzer = DiagnosticVerifier<T>.GetDiagnosticAnalyzer();
+            analyzerCreated?.Invoke(analyzer);
+            DiagnosticVerifier<T>.VerifyDiagnostics(new[] { source }, analyzer, expected);
         }
 
         /// <summary>
@@ -336,10 +338,9 @@ namespace TestHelper
         /// <summary>
         /// Creates an instance of the analyzer that is being tested.
         /// </summary>
-        /// <returns>The Diagnostics formatted as a string</returns>
-        private static DiagnosticAnalyzer GetDiagnosticAnalyzer()
+        private static T GetDiagnosticAnalyzer()
         {
-            return Activator.CreateInstance<T>();
+            return (T)Activator.CreateInstance<T>();
         }
 
         /// <summary>

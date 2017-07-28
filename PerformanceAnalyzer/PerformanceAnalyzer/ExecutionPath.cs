@@ -7,37 +7,62 @@ using Microsoft.CodeAnalysis;
 
 namespace PerformanceAnalyzer
 {
-    internal class ExecutionPath
+    public class ExecutionPath
     {
         public Node Root { get; } = new Node();
 
-        internal class Node
+        public sealed class Node
         {
-            public IList<Edge> LeavingEdges { get; } = new List<Edge>();
+            public string Name { get; set; }
 
-            public IList<Edge> ArrivingEdges { get; } = new List<Edge>();
+            public SyntaxNode SyntaxNode { get; set; }
 
-            internal Edge CreatePathTo(Node otherNode)
+            public IList<Node> NextNodes { get; } = new List<Node>();
+
+            public IList<Node> PreviousNodes { get; } = new List<Node>();
+
+            internal void CreatePathTo(Node nextNode)
             {
-                if (otherNode == null)
+                if (nextNode == null)
                 {
-                    throw new ArgumentNullException(nameof(otherNode));
+                    throw new ArgumentNullException(nameof(nextNode));
                 }
 
-                Edge newEdge = new Edge() { StartNode = this, EndNode = otherNode };
-                this.LeavingEdges.Add(newEdge);
-                otherNode.ArrivingEdges.Add(newEdge);
-                return newEdge;
+                this.NextNodes.Add(nextNode);
+                nextNode.PreviousNodes.Add(this);
+            }
+
+            public override string ToString()
+            {
+                return this.Name ?? this?.SyntaxNode.ToString() ?? base.ToString();
             }
         }
 
-        internal class Edge
+        public sealed class NodePair
         {
-            public Node StartNode { get; internal set; }
+            public NodePair(Node node1, Node node2)
+            {
+                this.Node1 = node1;
+                this.Node2 = node2;
+            }
 
-            public Node EndNode { get; internal set; }
+            public Node Node1 { get; }
 
-            public IList<SyntaxNode> Statements { get; } = new List<SyntaxNode>();
+            public Node Node2 { get; }
         }
+
+        //public class Edge
+        //{
+        //    public Node StartNode { get; internal set; }
+
+        //    public Node EndNode { get; internal set; }
+
+        //    public IList<SyntaxNode> Statements { get; } = new List<SyntaxNode>();
+
+        //    public override string ToString()
+        //    {
+        //        return string.Join("; ", Statements);
+        //    }
+        //}
     }
 }
