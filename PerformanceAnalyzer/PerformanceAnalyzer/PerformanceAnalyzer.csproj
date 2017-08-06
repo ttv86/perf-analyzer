@@ -41,6 +41,7 @@
     <Compile Include="ExecutionPath.cs" />
     <Compile Include="MemoizationAnalyzer.cs" />
     <Compile Include="ElementMatcher.cs" />
+    <Compile Include="PathAnalyzer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
