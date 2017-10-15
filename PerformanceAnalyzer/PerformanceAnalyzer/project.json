@@ -7,7 +7,8 @@
     "Microsoft.CodeAnalysis.Workspaces.Common": "2.2.0",
     "Microsoft.NETCore.Portable.Compatibility": "1.0.1",
     "NETStandard.Library": "1.6.0",
-    "NuGet.CommandLine": "4.1.0"
+    "NuGet.CommandLine": "4.1.0",
+    "StyleCop.Analyzers": "1.0.2"
   },
   "frameworks": {
     "netstandard1.3": {

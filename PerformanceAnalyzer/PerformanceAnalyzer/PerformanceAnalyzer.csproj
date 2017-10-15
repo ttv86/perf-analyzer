@@ -39,6 +39,10 @@
     <Compile Include="AnalyzerBase.cs" />
     <Compile Include="CodeFixProvider.cs" />
     <Compile Include="ExecutionPath.cs" />
+    <Compile Include="ExecutionPathNode.cs" />
+    <Compile Include="GraphHelper.cs" />
+    <Compile Include="IGraph.cs" />
+    <Compile Include="IGraphNode.cs" />
     <Compile Include="MemoizationAnalyzer.cs" />
     <Compile Include="ElementMatcher.cs" />
     <Compile Include="PathAnalyzer.cs" />

@@ -1,3 +1,7 @@
+// <copyright file="MemoizationAnalyzer.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
+
 namespace PerformanceAnalyzer
 {
     using System;
@@ -25,15 +29,15 @@ namespace PerformanceAnalyzer
         private ElementMatcher matcher;
 
         /// <summary>
-        /// Creates new instance of MemoizationAnalyzer class.
+        /// Initializes a new instance of the <see cref="MemoizationAnalyzer"/> class.
         /// </summary>
         public MemoizationAnalyzer()
         {
-            matcher = new ElementMatcher(this);
+            this.matcher = new ElementMatcher(this);
         }
 
         /// <summary>
-        /// Returns an array of analyzer descriptions to be used in Visual Studio analyses.
+        /// Gets an array of analyzer descriptions to be used in Visual Studio analyses.
         /// </summary>
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
@@ -49,7 +53,7 @@ namespace PerformanceAnalyzer
         protected override void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback)
         {
             // A dictionary of how many times each collection is read using a given variable.
-            readCounts = new Dictionary<Tuple<ExpressionSyntax, ExpressionSyntax>, Counter>(matcher);
+            this.readCounts = new Dictionary<Tuple<ExpressionSyntax, ExpressionSyntax>, Counter>(this.matcher);
 
             // A list of already processed nodes. No need to process it more than once.
             List<SyntaxNode> skipped = new List<SyntaxNode>();
@@ -65,19 +69,19 @@ namespace PerformanceAnalyzer
                 // When variable is used either with ref or out, mark it as possible changed.
                 if ((node is ArgumentSyntax argument) && !string.IsNullOrEmpty(argument.RefOrOutKeyword.Text))
                 {
-                    VariableChanged(argument.Expression);
+                    this.VariableChanged(argument.Expression);
                 }
 
-                // Member access aka method calls. 
+                // Member access aka method calls.
                 // method();
                 if (node is MemberAccessExpressionSyntax memberAccess)
                 {
-                    if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Contains", "ContainsKey", "TryGetValue"))
+                    if (this.IsDictionaryOrListMethod(memberAccess, this.SemanticModel, "Contains", "ContainsKey", "TryGetValue"))
                     {
                         // These methods do not change the state of the dictionary. We shouldn't keep calling them again with same parameters until the state has changed.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count >= 1))
                         {
-                            ReadValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
+                            this.ReadValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                         else
@@ -85,13 +89,13 @@ namespace PerformanceAnalyzer
                             throw new NotSupportedException();
                         }
                     }
-                    else if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Add"))
+                    else if (this.IsDictionaryOrListMethod(memberAccess, this.SemanticModel, "Add"))
                     {
                         // Add changes the state of the dictionary for 1 item.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 2))
                         {
                             // Add should have 2 parameters
-                            WriteValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
+                            this.WriteValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                         else
@@ -99,13 +103,13 @@ namespace PerformanceAnalyzer
                             throw new NotSupportedException();
                         }
                     }
-                    else if (IsDictionaryOrListMethod(memberAccess, SemanticModel, "Clear"))
+                    else if (this.IsDictionaryOrListMethod(memberAccess, this.SemanticModel, "Clear"))
                     {
                         // Clear changes the state of the dictionary for all items.
                         if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 0))
                         {
                             // Clear should have 0 parameters.
-                            ClearDictionary(memberAccess.Expression);
+                            this.ClearDictionary(memberAccess.Expression);
                             continue;
                         }
                         else
@@ -117,10 +121,10 @@ namespace PerformanceAnalyzer
 
                 if (node is AssignmentExpressionSyntax assignmentExpression)
                 {
-                    if (IsDictionaryOrList(assignmentExpression.Left))
+                    if (this.IsDictionaryOrList(assignmentExpression.Left))
                     {
                         // Reference to a dictionary was changed. No need to track previous instance anymore.
-                        ClearDictionary(assignmentExpression.Left);
+                        this.ClearDictionary(assignmentExpression.Left);
                     }
                     else
                     {
@@ -133,17 +137,17 @@ namespace PerformanceAnalyzer
                 // var value = dictionary[key];
                 if (node is ElementAccessExpressionSyntax elementAccess)
                 {
-                    if (IsDictionaryOrList(elementAccess.Expression))
+                    if (this.IsDictionaryOrList(elementAccess.Expression))
                     {
                         if (elementAccess.ArgumentList.Arguments.Count() == 1)
                         {
-                            ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression);
+                            this.ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression);
                             continue;
                         }
                     }
                     else
                     {
-                        //VariableChanged(postfixUnary.Operand);
+                        ////VariableChanged(postfixUnary.Operand);
                     }
                 }
 
@@ -152,12 +156,12 @@ namespace PerformanceAnalyzer
                 if (node is AssignmentExpressionSyntax assignment)
                 {
                     var target = assignment.Left;
-                    if (IsDictionaryOrList(assignment.Left))
+                    if (this.IsDictionaryOrList(assignment.Left))
                     {
-                        var tuple = GetDictionaryAccess(assignment.Left);
+                        var tuple = this.GetDictionaryAccess(assignment.Left);
                         if (tuple != null)
                         {
-                            WriteValue(tuple.Item1, tuple.Item2);
+                            this.WriteValue(tuple.Item1, tuple.Item2);
                             skipped.Add(assignment.Left);
                             continue;
                         }
@@ -173,7 +177,7 @@ namespace PerformanceAnalyzer
             }
 
             // If any dictionary was read more then once with same parameters, raise an error.
-            foreach (var x in readCounts)
+            foreach (var x in this.readCounts)
             {
                 if (x.Value.Max > 1)
                 {
@@ -195,12 +199,12 @@ namespace PerformanceAnalyzer
             // Unary prefix (++x, --x)
             if ((node is PrefixUnaryExpressionSyntax prefixUnary) && ((prefixUnary.OperatorToken.Text == "++") || (prefixUnary.OperatorToken.Text == "--")))
             {
-                if (IsDictionaryOrList(prefixUnary.Operand))
+                if (this.IsDictionaryOrList(prefixUnary.Operand))
                 {
-                    var tuple = GetDictionaryAccess(prefixUnary.Operand);
+                    var tuple = this.GetDictionaryAccess(prefixUnary.Operand);
                     if (tuple != null)
                     {
-                        WriteValue(tuple.Item1, tuple.Item2);
+                        this.WriteValue(tuple.Item1, tuple.Item2);
                         skippedNodes.Add(prefixUnary.Operand);
                         return true;
                     }
@@ -211,19 +215,19 @@ namespace PerformanceAnalyzer
                 }
                 else
                 {
-                    VariableChanged(prefixUnary.Operand);
+                    this.VariableChanged(prefixUnary.Operand);
                 }
             }
 
             // Unary postfix (x++, x--)
             if ((node is PostfixUnaryExpressionSyntax postfixUnary) && ((postfixUnary.OperatorToken.Text == "++") || (postfixUnary.OperatorToken.Text == "--")))
             {
-                if (IsDictionaryOrList(postfixUnary.Operand))
+                if (this.IsDictionaryOrList(postfixUnary.Operand))
                 {
-                    var tuple = GetDictionaryAccess(postfixUnary.Operand);
+                    var tuple = this.GetDictionaryAccess(postfixUnary.Operand);
                     if (tuple != null)
                     {
-                        WriteValue(tuple.Item1, tuple.Item2);
+                        this.WriteValue(tuple.Item1, tuple.Item2);
                         skippedNodes.Add(postfixUnary.Operand);
                         return true;
                     }
@@ -234,7 +238,7 @@ namespace PerformanceAnalyzer
                 }
                 else
                 {
-                    VariableChanged(postfixUnary.Operand);
+                    this.VariableChanged(postfixUnary.Operand);
                 }
             }
 
@@ -243,7 +247,7 @@ namespace PerformanceAnalyzer
 
         private void VariableChanged(ExpressionSyntax expression)
         {
-            foreach (var kvp in readCounts)
+            foreach (var kvp in this.readCounts)
             {
                 // If the varible matches to some of our dictionary search keys, reset that dictionary search counter.
                 if (this.matcher.Equals(kvp.Key.Item2, expression) || this.matcher.Equals(kvp.Key.Item1, expression))
@@ -272,12 +276,12 @@ namespace PerformanceAnalyzer
         /// </summary>
         private void ReadValue(ExpressionSyntax expression, ExpressionSyntax key)
         {
-            System.Diagnostics.Debug.WriteLine($"Reading {expression} by key {key} ({GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
+            System.Diagnostics.Debug.WriteLine($"Reading {expression} by key {key} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
-            if (!readCounts.TryGetValue(searchKey, out Counter old))
+            if (!this.readCounts.TryGetValue(searchKey, out Counter old))
             {
                 // This value hasn't been used before. Add it.
-                readCounts.Add(searchKey, old = new Counter(0));
+                this.readCounts.Add(searchKey, old = new Counter(0));
             }
 
             old.Increase(expression);
@@ -288,11 +292,11 @@ namespace PerformanceAnalyzer
         /// </summary>
         private void WriteValue(ExpressionSyntax expression, ExpressionSyntax key)
         {
-            System.Diagnostics.Debug.WriteLine($"Writing {expression} by key {key} ({GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
+            System.Diagnostics.Debug.WriteLine($"Writing {expression} by key {key} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
 
             // Try to reset value counter if it has been set.
-            if (readCounts.TryGetValue(searchKey, out Counter old))
+            if (this.readCounts.TryGetValue(searchKey, out Counter old))
             {
                 old.Reset();
             }
@@ -303,30 +307,37 @@ namespace PerformanceAnalyzer
         /// </summary>
         private void ClearDictionary(ExpressionSyntax expression)
         {
-            System.Diagnostics.Debug.WriteLine($"Clearing {expression} ({GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
-            foreach (var kvp in readCounts)
+            System.Diagnostics.Debug.WriteLine($"Clearing {expression} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
+            foreach (var kvp in this.readCounts)
             {
-                if (matcher.Equals(kvp.Key.Item1, expression))
+                if (this.matcher.Equals(kvp.Key.Item1, expression))
                 {
                     kvp.Value.Reset();
                 }
             }
         }
 
+        /// <summary>
+        /// Returns the content of the string until the first newline character.
+        /// </summary>
+        /// <param name="text">Any string</param>
+        /// <returns>First line of the string that was given.</returns>
         private string GetFirstLine(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
-                return string.Empty;
+                return text;
             }
 
             text = text.Trim();
             int index = text.IndexOf('\n');
             if (index > 0)
             {
+                // A newline character was found. Return everything before it.
                 return text.Substring(0, index).Trim();
             }
 
+            // No newline. Return everything.
             return text;
         }
 
@@ -342,9 +353,10 @@ namespace PerformanceAnalyzer
                 expression = ea.Expression;
             }
 
-            var symbol = SemanticModel.GetSymbolInfo(expression);
+            var symbol = this.SemanticModel.GetSymbolInfo(expression);
             if (symbol.Symbol != null)
             {
+                // Use reflection to get what we want.
                 var orig = symbol.Symbol.OriginalDefinition;
                 var typeInfo = orig.GetType().GetTypeInfo();
                 var typeProperty = typeInfo.DeclaredProperties.FirstOrDefault(x => x.Name == "Type");
@@ -382,7 +394,7 @@ namespace PerformanceAnalyzer
                 return false;
             }
 
-            // Test only types from 
+            // Test only types from
             if (orig.ContainingAssembly.Name == "mscorlib")
             {
                 if ((orig.Name == "List") || (orig.Name == "IList") || (orig.Name == "IReadOnlyList"))
@@ -404,7 +416,7 @@ namespace PerformanceAnalyzer
         /// </summary>
         internal bool IsDictionaryOrListMethod(MemberAccessExpressionSyntax access, SemanticModel semModel, params string[] methodNames)
         {
-            if (!IsDictionaryOrList(access.Expression))
+            if (!this.IsDictionaryOrList(access.Expression))
             {
                 return false;
             }
@@ -438,23 +450,23 @@ namespace PerformanceAnalyzer
             /// <param name="node"></param>
             public void Increase(SyntaxNode node)
             {
-                Current++;
-                if (Current > Max)
+                this.Current++;
+                if (this.Current > this.Max)
                 {
-                    Max = Current;
+                    this.Max = this.Current;
                 }
 
-                if (start < 0)
+                if (this.start < 0)
                 {
                     // This is the first one. Use span as is.
-                    start = node.Span.Start;
-                    end = node.Span.End;
+                    this.start = node.Span.Start;
+                    this.end = node.Span.End;
                 }
                 else
                 {
                     // There was already a span. Combine both spans to a new one.
-                    start = Math.Min(node.SpanStart, start);
-                    end = Math.Max(node.Span.End, start);
+                    this.start = Math.Min(node.SpanStart, this.start);
+                    this.end = Math.Max(node.Span.End, this.start);
                 }
             }
 
@@ -463,14 +475,14 @@ namespace PerformanceAnalyzer
             /// </summary>
             public void Reset()
             {
-                start = -1;
-                end = -1;
-                Current = 0;
+                this.start = -1;
+                this.end = -1;
+                this.Current = 0;
             }
 
             internal Location GetLocation(SyntaxTree syntaxTree)
             {
-                if (start == -1)
+                if (this.start == -1)
                 {
                     return null;
                 }

@@ -1,4 +1,8 @@
-﻿namespace PerformanceAnalyzer
+﻿// <copyright file="AnalyzerBase.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
+
+namespace PerformanceAnalyzer
 {
     using System;
     using System.Linq;
@@ -12,7 +16,7 @@
 
         public override void Initialize(AnalysisContext context)
         {
-            context.RegisterSemanticModelAction(AnalyzeModel);
+            context.RegisterSemanticModelAction(this.AnalyzeModel);
         }
 
         protected abstract void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback);

@@ -30,7 +30,7 @@ namespace PerformanceAnalyzer.Test
             }
 
             CodePathTests testInstance = new CodePathTests();
-            testInstance.TestTryPath();
+            testInstance.TestTryPath1();
             /*
             var testMethods = typeof(MemoizationUnitTests).GetMethods();
             foreach (var testMethod in testMethods)

@@ -1,68 +1,50 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
+﻿// <copyright file="ExecutionPath.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
 
 namespace PerformanceAnalyzer
 {
-    public class ExecutionPath
+    using System;
+    using System.Collections.Generic;
+    using Microsoft.CodeAnalysis;
+
+    /// <summary>
+    /// A class that represents the code execution graph.
+    /// </summary>
+    public class ExecutionPath : IRootedGraph<ExecutionPathNode>
     {
-        public Node Root { get; } = new Node();
+        private ExecutionPathNode root = new ExecutionPathNode();
 
-        public sealed class Node
-        {
-            public string Name { get; set; }
+        /// <summary>
+        /// Gets the root node (entry point) for the current execution path.
+        /// </summary>
+        public ExecutionPathNode Root => this.root;
 
-            public SyntaxNode SyntaxNode { get; set; }
+        ////public sealed class NodePair
+        ////{
+        ////    public NodePair(Node node1, Node node2)
+        ////    {
+        ////        this.Node1 = node1;
+        ////        this.Node2 = node2;
+        ////    }
 
-            public IList<Node> NextNodes { get; } = new List<Node>();
+        ////    public Node Node1 { get; }
 
-            public IList<Node> PreviousNodes { get; } = new List<Node>();
+        ////    public Node Node2 { get; }
+        ////}
 
-            internal void CreatePathTo(Node nextNode)
-            {
-                if (nextNode == null)
-                {
-                    throw new ArgumentNullException(nameof(nextNode));
-                }
+        ////public class Edge
+        ////{
+        ////    public Node StartNode { get; internal set; }
 
-                this.NextNodes.Add(nextNode);
-                nextNode.PreviousNodes.Add(this);
-            }
+        ////    public Node EndNode { get; internal set; }
 
-            public override string ToString()
-            {
-                return this.Name ?? this?.SyntaxNode.ToString() ?? base.ToString();
-            }
-        }
+        ////    public IList<SyntaxNode> Statements { get; } = new List<SyntaxNode>();
 
-        public sealed class NodePair
-        {
-            public NodePair(Node node1, Node node2)
-            {
-                this.Node1 = node1;
-                this.Node2 = node2;
-            }
-
-            public Node Node1 { get; }
-
-            public Node Node2 { get; }
-        }
-
-        //public class Edge
-        //{
-        //    public Node StartNode { get; internal set; }
-
-        //    public Node EndNode { get; internal set; }
-
-        //    public IList<SyntaxNode> Statements { get; } = new List<SyntaxNode>();
-
-        //    public override string ToString()
-        //    {
-        //        return string.Join("; ", Statements);
-        //    }
-        //}
+        ////    public override string ToString()
+        ////    {
+        ////        return string.Join("; ", Statements);
+        ////    }
+        ////}
     }
 }

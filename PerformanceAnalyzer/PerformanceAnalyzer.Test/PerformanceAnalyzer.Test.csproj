@@ -169,7 +169,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AssertCollection.cs" />
     <Compile Include="CodePathTests.cs" />
+    <Compile Include="GraphTests.cs" />
+    <Compile Include="PathAnalyzerTestClass.cs" />
     <Compile Include="Verifiers\DiagnosticResultLocation.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Verifiers\DiagnosticVerifier.cs" />

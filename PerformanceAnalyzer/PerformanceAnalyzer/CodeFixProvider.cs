@@ -1,4 +1,7 @@
-﻿// Currently not in use
+﻿// <copyright file="CodeFixProvider.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
+
 /*
 using System.Collections.Immutable;
 using System.Composition;

@@ -1,4 +1,8 @@
-﻿namespace PerformanceAnalyzer
+﻿// <copyright file="ElementMatcher.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
+
+namespace PerformanceAnalyzer
 {
     using System;
     using System.Collections.Generic;
@@ -17,9 +21,9 @@
 
         public bool Equals(ExpressionSyntax x, ExpressionSyntax y)
         {
-            if (null == x)
+            if (x == null)
             {
-                if (null == y)
+                if (y == null)
                 {
                     return true;
                 }
@@ -28,14 +32,14 @@
                     return false;
                 }
             }
-            else if (null == y)
+            else if (y == null)
             {
                 return false;
             }
             else
             {
-                var symbol1 = analyzer.SemanticModel.GetSymbolInfo(x).Symbol;
-                var symbol2 = analyzer.SemanticModel.GetSymbolInfo(y).Symbol;
+                var symbol1 = this.analyzer.SemanticModel.GetSymbolInfo(x).Symbol;
+                var symbol2 = this.analyzer.SemanticModel.GetSymbolInfo(y).Symbol;
                 if ((symbol1 != null) && (symbol2 != null))
                 {
                     return symbol1.Equals(symbol2);
@@ -49,9 +53,9 @@
 
         public int GetHashCode(ExpressionSyntax obj)
         {
-            if (obj.SyntaxTree == analyzer.SemanticModel.SyntaxTree)
+            if (obj.SyntaxTree == this.analyzer.SemanticModel.SyntaxTree)
             {
-                return analyzer.SemanticModel.GetSymbolInfo(obj).Symbol.GetHashCode();
+                return this.analyzer.SemanticModel.GetSymbolInfo(obj).Symbol.GetHashCode();
             }
             else
             {
@@ -61,12 +65,12 @@
 
         public bool Equals(Tuple<ExpressionSyntax, ExpressionSyntax> x, Tuple<ExpressionSyntax, ExpressionSyntax> y)
         {
-            return Equals(x.Item1, y.Item1) && Equals(x.Item2, y.Item2);
+            return this.Equals(x.Item1, y.Item1) && this.Equals(x.Item2, y.Item2);
         }
 
         public int GetHashCode(Tuple<ExpressionSyntax, ExpressionSyntax> obj)
         {
-            return GetHashCode(obj.Item1);
+            return this.GetHashCode(obj.Item1);
         }
     }
 }

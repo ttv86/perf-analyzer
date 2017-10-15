@@ -1,14 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using TestHelper;
+﻿// <copyright file="CodePathTests.cs" company="Timo Virkki">
+// Copyright (c) Timo Virkki. All rights reserved.
+// </copyright>
 
 namespace PerformanceAnalyzer.Test
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Immutable;
+    using System.Linq;
+    using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp.Syntax;
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using TestHelper;
+
     [TestClass]
     public class CodePathTests : DiagnosticVerifier<PathAnalyzerTestClass>
     {
@@ -131,35 +135,68 @@ namespace PerformanceAnalyzer.Test
         }
 
         [TestMethod]
-        public void TestTryPath()
+        public void TestTryPath1()
         {
             string source = @"internal static class TestClass
 {
-    public static int Test()
+    public static void Test()
     {
+        // Test a block without catch statement.
         try {
-            (0).ToString();
-        } catch {
-            (1).ToString();
-        }
-
-        try {
-            (0).ToString();
-        } catch (System.InvalidOperationException error) {
-            (1).ToString();
-        } catch (System.Exception error) {
-            return 1;
+            LongRunningMethod1();
         } finally {
-            (3).ToString();
+            LongRunningMethod1();
         }
 
-        return 0;
+        // Test a block with multiple catch statements.
+        try {
+            LongRunningMethod2();
+        } catch (System.InvalidOperationException error) {
+            LongRunningMethod2();
+        } catch (System.Exception error) {
+            LongRunningMethod2();
+        }
+    }
+
+    private static void LongRunningMethod1() {
+    }
+
+    private static void LongRunningMethod2() {
     }
 }";
-            this.RunTest(source, null);
+            this.RunTest(source, (results) =>
+            {
+                Assert.AreEqual(0, results.Count); // There shouldn't be any warnings, since none of the above methods are on same execution path.
+            });
         }
 
-        private void RunTest(string source, object expected)
+        [TestMethod]
+        public void TestTryPath2()
+        {
+            string source = @"internal static class TestClass
+{
+    public static void Test()
+    {
+        // Test a block without catch statement.
+        try {
+            LongRunningMethod();
+        } catch (System.Exception error) {
+            LongRunningMethod();
+        } finally {
+            LongRunningMethod();
+        }
+    }
+
+    private static void LongRunningMethod() {
+    }
+}";
+            this.RunTest(source, (results) =>
+            {
+                Assert.AreEqual(1, results.Count); // There should be 1 warning, since LongRunningMethod could be called twice during the execution.
+            });
+        }
+
+        private void RunTest(string source, Action<IReadOnlyCollection<object>> expected)
         {
             PathAnalyzerTestClass analyzer = null;
             Action<PathAnalyzerTestClass> created = new Action<PathAnalyzerTestClass>((createdAnalyzer) =>
@@ -169,23 +206,10 @@ namespace PerformanceAnalyzer.Test
 
             this.VerifyDiagnostic(source, created);
             Assert.IsNotNull(analyzer);
-            Assert.AreEqual(analyzer.MethodPaths.Count, 1); // There should be only 1 element.
-            ExecutionPath path = analyzer.MethodPaths.First().Value;
+            ExecutionPath path = analyzer.MethodPaths.First().Value; // Take the first method should be only 1 element.
+            analyzer.AnalyzePath(path);
+
             // TODO: Create a test to verify node structure.
-        }
-    }
-
-    public class PathAnalyzerTestClass : PathAnalyzer
-    {
-        private static DiagnosticDescriptor descriptor = new DiagnosticDescriptor(nameof(PathAnalyzer), "Test", "Test", "Test", DiagnosticSeverity.Warning, true);
-
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create<DiagnosticDescriptor>(descriptor);
-
-        public IDictionary<MethodDeclarationSyntax, ExecutionPath> MethodPaths { get; } = new Dictionary<MethodDeclarationSyntax, ExecutionPath>();
-
-        protected override void AnalyzeMethod(MethodDeclarationSyntax method, ExecutionPath path, Action<Diagnostic> callback)
-        {
-            this.MethodPaths[method] = path;
         }
     }
 }
