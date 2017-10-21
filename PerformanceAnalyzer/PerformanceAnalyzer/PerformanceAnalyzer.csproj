@@ -37,6 +37,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AnalyzerBase.cs" />
+    <Compile Include="AwaitInLoopAnalyzer.cs" />
     <Compile Include="CodeFixProvider.cs" />
     <Compile Include="ExecutionPath.cs" />
     <Compile Include="ExecutionPathNode.cs" />

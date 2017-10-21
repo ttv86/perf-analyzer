@@ -6,6 +6,7 @@ namespace PerformanceAnalyzer
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
@@ -19,6 +20,17 @@ namespace PerformanceAnalyzer
         protected override void AnalyzeMethod(MethodDeclarationSyntax method, Action<Diagnostic> callback)
         {
             var executionPath = this.SplitMethod(method);
+
+            // After we have made a graph from method contents, mark nodes that are in cycles.
+            IReadOnlyCollection<IEnumerable<ExecutionPathNode>> cycles = GraphHelper.FindAllCycles<ExecutionPathNode>(executionPath);
+            foreach (var cycle in cycles)
+            {
+                foreach (var node in cycle)
+                {
+                    node.IsInCycle = true;
+                }
+            }
+
             this.AnalyzeMethod(method, executionPath, callback);
         }
 
@@ -45,6 +57,31 @@ namespace PerformanceAnalyzer
             }
 
             return path;
+        }
+
+        internal void AnalyzePath(ExecutionPath path)
+        {
+            // First we check which lines are within some loop.
+            var cycles = GraphHelper.FindAllCycles<ExecutionPathNode>(path);
+            IGraphNode<ExecutionPathNode>[] cycledNodes = cycles.SelectMany(x => x).ToArray();
+
+            HashSet<ExecutionPathNode> analyzedNodes = new HashSet<ExecutionPathNode>();
+            List<ExecutionPathNode> analyzableNodes = new List<ExecutionPathNode>();
+            analyzableNodes.Add(path.Root);
+            while (analyzableNodes.Count > 0)
+            {
+                var first = analyzableNodes[0];
+                analyzableNodes.RemoveAt(0);
+                if (analyzedNodes.Contains(first))
+                {
+                    // This node was already analyzed. We can skip it.
+                    continue;
+                }
+
+                Debug.WriteLine(first.ToString());
+                analyzedNodes.Add(first); // Mark this node as analyzed.
+                analyzableNodes.AddRange(first.NextNodes);
+            }
         }
 
         private ExecutionPathNode SplitAndAnalyzeBlock(ExecutionPathNode prevNode, StatementSyntax statement, SplitInfo splitInfo)
@@ -266,21 +303,24 @@ namespace PerformanceAnalyzer
             beginForEachNode.Name = "Begin foreach";
             beginForEachNode.SyntaxNode = forEachStatement.Expression;
 
+            ExecutionPathNode beginForEachBody = new ExecutionPathNode() { Name = "Begin foreach body" };
+            beginForEachNode.CreatePathTo(beginForEachBody);
+
             ExecutionPathNode endForEachNode = new ExecutionPathNode() { Name = "End foreach" };
-            beginForEachNode.CreatePathTo(endForEachNode);
+            beginForEachBody.CreatePathTo(endForEachNode);
 
             SplitInfo forEachSplitInfo = splitInfo.Clone();
-            forEachSplitInfo.LoopStartNode = beginForEachNode;
+            forEachSplitInfo.LoopStartNode = beginForEachBody;
             forEachSplitInfo.LoopOrSwitchEndNode = endForEachNode;
 
-            ExecutionPathNode forEachBodyEndNode = this.SplitAndAnalyzeBlock(beginForEachNode, forEachStatement.Statement, forEachSplitInfo);
+            ExecutionPathNode forEachBodyEndNode = this.SplitAndAnalyzeBlock(beginForEachBody, forEachStatement.Statement, forEachSplitInfo);
             if (forEachBodyEndNode == null)
             {
                 return null; // No executions paths left.
             }
             else
             {
-                forEachBodyEndNode.CreatePathTo(endForEachNode);
+                forEachBodyEndNode.CreatePathTo(beginForEachBody);
             }
 
             return endForEachNode;

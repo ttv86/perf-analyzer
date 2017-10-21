@@ -4,20 +4,16 @@
 
 namespace PerformanceAnalyzer.Test
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.Immutable;
-    using System.Linq;
+    using System.Threading.Tasks;
     using Microsoft.CodeAnalysis;
-    using Microsoft.CodeAnalysis.CSharp.Syntax;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using TestHelper;
 
     [TestClass]
-    public class CodePathTests : DiagnosticVerifier<PathAnalyzerTestClass>
+    public class CodePathTests
     {
         [TestMethod]
-        public void TestIfPath()
+        public async Task TestIfPath()
         {
             string source = @"internal static class TestClass
 {
@@ -31,11 +27,12 @@ namespace PerformanceAnalyzer.Test
         }
     }
 }";
-            this.RunTest(source, null);
+
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestSwitchPath()
+        public async Task TestSwitchPath()
         {
             string source = @"internal static class TestClass
 {
@@ -60,11 +57,11 @@ namespace PerformanceAnalyzer.Test
         return j;
     }
 }";
-            this.RunTest(source, null);
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestForPath()
+        public async Task TestForPath()
         {
             string source = @"internal static class TestClass
 {
@@ -77,11 +74,11 @@ namespace PerformanceAnalyzer.Test
         return 0;
     }
 }";
-            this.RunTest(source, null);
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestForeachPath()
+        public async Task TestForeachPath()
         {
             string source = @"internal static class TestClass
 {
@@ -95,11 +92,11 @@ namespace PerformanceAnalyzer.Test
         return 0;
     }
 }";
-            this.RunTest(source, null);
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestDoPath()
+        public async Task TestDoPath()
         {
             string source = @"internal static class TestClass
 {
@@ -113,11 +110,11 @@ namespace PerformanceAnalyzer.Test
         return i;
     }
 }";
-            this.RunTest(source, null);
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestWhilePath()
+        public async Task TestWhilePath()
         {
             string source = @"internal static class TestClass
 {
@@ -131,11 +128,11 @@ namespace PerformanceAnalyzer.Test
         return i;
     }
 }";
-            this.RunTest(source, null);
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
         }
 
         [TestMethod]
-        public void TestTryPath1()
+        public async Task TestTryPath1()
         {
             string source = @"internal static class TestClass
 {
@@ -164,14 +161,12 @@ namespace PerformanceAnalyzer.Test
     private static void LongRunningMethod2() {
     }
 }";
-            this.RunTest(source, (results) =>
-            {
-                Assert.AreEqual(0, results.Count); // There shouldn't be any warnings, since none of the above methods are on same execution path.
-            });
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
+            Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings, since none of the above methods are on same execution path.
         }
 
         [TestMethod]
-        public void TestTryPath2()
+        public async Task TestTryPath2()
         {
             string source = @"internal static class TestClass
 {
@@ -190,26 +185,8 @@ namespace PerformanceAnalyzer.Test
     private static void LongRunningMethod() {
     }
 }";
-            this.RunTest(source, (results) =>
-            {
-                Assert.AreEqual(1, results.Count); // There should be 1 warning, since LongRunningMethod could be called twice during the execution.
-            });
-        }
-
-        private void RunTest(string source, Action<IReadOnlyCollection<object>> expected)
-        {
-            PathAnalyzerTestClass analyzer = null;
-            Action<PathAnalyzerTestClass> created = new Action<PathAnalyzerTestClass>((createdAnalyzer) =>
-            {
-                analyzer = createdAnalyzer;
-            });
-
-            this.VerifyDiagnostic(source, created);
-            Assert.IsNotNull(analyzer);
-            ExecutionPath path = analyzer.MethodPaths.First().Value; // Take the first method should be only 1 element.
-            analyzer.AnalyzePath(path);
-
-            // TODO: Create a test to verify node structure.
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
+            Assert.AreEqual(1, diagnostics.Length); // There should be 1 warning, since LongRunningMethod could be called twice during the execution.
         }
     }
 }

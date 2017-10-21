@@ -26,6 +26,8 @@ namespace PerformanceAnalyzer
         /// </summary>
         public SyntaxNode SyntaxNode { get; set; }
 
+        public bool IsInCycle { get; set; }
+
         /// <summary>
         /// Gets a list of nodes where code execution might move to.
         /// </summary>

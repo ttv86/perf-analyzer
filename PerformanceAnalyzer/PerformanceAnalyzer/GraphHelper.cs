@@ -16,10 +16,10 @@ namespace PerformanceAnalyzer
         /// </summary>
         /// <param name="graph">A reference to a graph.</param>
         /// <returns>A list of all the cycles in a graph.</returns>
-        internal static IReadOnlyCollection<IEnumerable<IGraphNode<T>>> FindAllCycles<T>(IGraph graph)
+        internal static IReadOnlyCollection<IEnumerable<T>> FindAllCycles<T>(IGraph graph)
             where T : IGraphNode<T>
         {
-            var result = new List<IEnumerable<IGraphNode<T>>>();
+            var result = new List<IEnumerable<T>>();
             T root;
             if (graph is IRootedGraph<T> rooted)
             {
@@ -45,7 +45,7 @@ namespace PerformanceAnalyzer
                     if (firstInstance >= 0)
                     {
                         // Current node was found from a path here. Mark this as a cycle.
-                        result.Add(new List<IGraphNode<T>>(first.PathSoFar.Skip(firstInstance)));
+                        result.Add(new List<T>(first.PathSoFar.Skip(firstInstance).Cast<T>()));
                     }
                     else
                     {

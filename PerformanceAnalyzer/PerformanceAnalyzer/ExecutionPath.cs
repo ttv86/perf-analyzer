@@ -20,6 +20,31 @@ namespace PerformanceAnalyzer
         /// </summary>
         public ExecutionPathNode Root => this.root;
 
+        /// <summary>
+        /// Executes a given method once for every node in path.
+        /// </summary>
+        /// <param name="callback">Method to be executed.</param>
+        public void ForEachNode(Action<ExecutionPathNode> callback)
+        {
+            HashSet<ExecutionPathNode> analyzedNodes = new HashSet<ExecutionPathNode>();
+            List<ExecutionPathNode> analyzableNodes = new List<ExecutionPathNode>();
+            analyzableNodes.Add(this.Root);
+            while (analyzableNodes.Count > 0)
+            {
+                var first = analyzableNodes[0];
+                analyzableNodes.RemoveAt(0);
+                if (analyzedNodes.Contains(first))
+                {
+                    // This node was already analyzed. We can skip it.
+                    continue;
+                }
+
+                callback(first);
+                analyzedNodes.Add(first); // Mark this node as analyzed.
+                analyzableNodes.AddRange(first.NextNodes);
+            }
+        }
+
         ////public sealed class NodePair
         ////{
         ////    public NodePair(Node node1, Node node2)

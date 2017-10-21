@@ -12,6 +12,7 @@ namespace PerformanceAnalyzer.Test
     public class GraphTests
     {
         [TestMethod]
+        [TestCategory("Graph")]
         public void TestCycleFind_Tree()
         {
             /*        A
@@ -44,6 +45,7 @@ namespace PerformanceAnalyzer.Test
         }
 
         [TestMethod]
+        [TestCategory("Graph")]
         public void TestCycleFind_SplitAndMerge()
         {
             /*
@@ -68,6 +70,7 @@ namespace PerformanceAnalyzer.Test
         }
 
         [TestMethod]
+        [TestCategory("Graph")]
         public void TestCycleFind_OneCycle()
         {
             /* A -> B
@@ -93,6 +96,7 @@ namespace PerformanceAnalyzer.Test
         }
 
         [TestMethod]
+        [TestCategory("Graph")]
         public void TestCycleFind_TwoCycles()
         {
             /* A -> B -> C -> F -> G
@@ -134,6 +138,7 @@ namespace PerformanceAnalyzer.Test
         }
 
         [TestMethod]
+        [TestCategory("Graph")]
         public void TestCycleFind_NestedCycles()
         {
             /* A -> B -> C -> D -> E -> F
