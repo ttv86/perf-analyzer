@@ -4,6 +4,7 @@
 
 namespace PerformanceAnalyzer.Test
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using Microsoft.CodeAnalysis;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -65,6 +66,49 @@ internal class TestClass
 }";
             Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
             Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings. Two reads are on different code paths
+        }
+
+        /// <summary>
+        /// Checks that if we read from the list twice with the same key, but on different code paths we don't get an error.
+        /// </summary>
+        [TestMethod]
+        public async Task TestDictionarySearchOnLoop1()
+        {
+            var testCode = @"using System.Collections.Generic;
+
+internal class TestClass
+{
+    public void Test(IDictionary<double, double> localList)
+    {
+        for (int i = 0; i < 5; i++) {
+            localList[3].ToString();
+        }
+    }
+}";
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
+            Assert.AreEqual(1, diagnostics.Length); // There should be one warning.
+            Assert.AreEqual("Collection localList is searched multiple times with key 3.", diagnostics[0].GetMessage());
+        }
+
+        /// <summary>
+        /// Checks that if we read from the list twice with the same key, but on different code paths we don't get an error.
+        /// </summary>
+        [TestMethod]
+        public async Task TestDictionarySearchOnLoop2()
+        {
+            var testCode = @"using System.Collections.Generic;
+
+internal class TestClass
+{
+    public void Test(IDictionary<double, double> localList)
+    {
+        for (int i = 0; i < 5; i++) {
+            localList[i].ToString();
+        }
+    }
+}";
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
+            Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings. Read value is different each time.
         }
 
         /// <summary>

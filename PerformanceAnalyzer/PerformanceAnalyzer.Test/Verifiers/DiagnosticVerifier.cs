@@ -10,8 +10,10 @@ namespace TestHelper
     using System.Linq;
     using System.Threading.Tasks;
     using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp.Syntax;
     using Microsoft.CodeAnalysis.Diagnostics;
     using Microsoft.CodeAnalysis.Text;
+    using PerformanceAnalyzer;
     using Test = Microsoft.VisualStudio.TestTools.UnitTesting;
 
     /// <summary>
@@ -30,7 +32,7 @@ namespace TestHelper
         internal static Task<Diagnostic[]> CreateAndRunAnalyzerAsync<T>(string source, params DiagnosticResult[] expected) where T : DiagnosticAnalyzer
         {
             T analyzer = Activator.CreateInstance<T>();
-            return DiagnosticVerifier.RunAnalyzerAsync(analyzer, GetDocuments(new[] { source }));
+            return DiagnosticVerifier.RunAnalyzerAsync(analyzer, GetDocumentsInProject(new[] { source }));
         }
 
         /// <summary>
@@ -38,25 +40,14 @@ namespace TestHelper
         /// The returned diagnostics are then ordered by location in the source document.
         /// </summary>
         /// <param name="analyzer">The analyzer to run on the documents</param>
-        /// <param name="documents">The Documents that the analyzer will be run on</param>
+        /// <param name="project">The Documents that the analyzer will be run on</param>
         /// <returns>An IEnumerable of Diagnostics that surfaced in the source code, sorted by Location</returns>
-        private static async Task<Diagnostic[]> RunAnalyzerAsync(DiagnosticAnalyzer analyzer, Document[] documents)
+        private static async Task<Diagnostic[]> RunAnalyzerAsync(DiagnosticAnalyzer analyzer, Project project)
         {
-            var projects = new HashSet<Project>();
-            foreach (var document in documents)
-            {
-                projects.Add(document.Project);
-            }
-
             var diagnostics = new List<Diagnostic>();
-            foreach (var project in projects)
-            {
-                var compilationWithAnalyzers = (await project.GetCompilationAsync()).WithAnalyzers(ImmutableArray.Create(analyzer));
-                var diags = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
-                diagnostics.AddRange(diags);
-            }
-
-            return diagnostics.ToArray();
+            var compilationWithAnalyzers = (await project.GetCompilationAsync()).WithAnalyzers(ImmutableArray.Create(analyzer));
+            var diags = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
+            return diags.ToArray();
         }
 
         /// <summary>
@@ -64,7 +55,7 @@ namespace TestHelper
         /// </summary>
         /// <param name="sources">Classes in the form of strings</param>
         /// <returns>A Tuple containing the Documents produced from the sources and their TextSpans if relevant</returns>
-        private static Document[] GetDocuments(string[] sources)
+        internal static Project GetDocumentsInProject(params string[] sources)
         {
             var project = CreateProject(sources);
             var documents = project.Documents.ToArray();
@@ -74,7 +65,24 @@ namespace TestHelper
                 throw new SystemException("Amount of sources did not match amount of Documents created");
             }
 
-            return documents;
+            return project;
+        }
+
+        internal static async Task<IDictionary<string, ExecutionPath>> GetMethodTrees(string testCode)
+        {
+            IDictionary<string, ExecutionPath> methods2 = new Dictionary<string, ExecutionPath>();
+            var project = DiagnosticVerifier.GetDocumentsInProject(testCode);
+            var compilation = await project.GetCompilationAsync();
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+                foreach (var method in methods)
+                {
+                    methods2.Add(method.Identifier.Text, TreeGenerator.SplitMethod(method));
+                }
+            }
+
+            return methods2;
         }
 
         /// <summary>

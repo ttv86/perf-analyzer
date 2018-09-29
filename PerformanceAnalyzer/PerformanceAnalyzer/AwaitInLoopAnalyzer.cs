@@ -5,7 +5,9 @@
 namespace PerformanceAnalyzer
 {
     using System;
+    using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Linq;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp.Syntax;
     using Microsoft.CodeAnalysis.Diagnostics;
@@ -31,15 +33,17 @@ namespace PerformanceAnalyzer
 
         protected override void AnalyzeMethod(MethodDeclarationSyntax method, ExecutionPath path, Action<Diagnostic> callback)
         {
-            path.ForEachNode(n => TestNode(n, callback));
-        }
-
-        private static void TestNode(ExecutionPathNode node, Action<Diagnostic> callback)
-        {
-            if (node.IsInCycle && node.SyntaxNode is AwaitExpressionSyntax awaitNode)
+            var cycles = GraphHelper.FindAllCycles<ExecutionPathNode>(path);
+            foreach (var awaitInCycle in cycles     // For each cycle:
+                .SelectMany(x => x)                 // Select all nodes from all cycles.
+                .Distinct()                         // But only once per each (in case of inner loops).
+                .Select(x => x.SyntaxNode)          // Select syntaxNode for each node.
+                .Where(x => x != null)              // We can skip nodes where there is no syntax attached.
+                .SelectMany(n => n.DescendantNodesAndSelf()) // Process also everything within expressions.
+                .OfType<AwaitExpressionSyntax>())   // And check if it is an await.
             {
-                var location = awaitNode.GetLocation();
-                callback?.Invoke(Diagnostic.Create(descriptor, location));
+                var location = awaitInCycle.GetLocation();
+                base.CreateUniqueDiagnostic(callback, descriptor, location);
             }
         }
     }

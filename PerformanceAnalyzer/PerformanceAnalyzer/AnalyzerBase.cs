@@ -10,6 +10,9 @@ namespace PerformanceAnalyzer
     using Microsoft.CodeAnalysis.CSharp.Syntax;
     using Microsoft.CodeAnalysis.Diagnostics;
 
+    /// <summary>
+    /// A base class for all analyzers.
+    /// </summary>
     public abstract class AnalyzerBase : DiagnosticAnalyzer
     {
         internal SemanticModel SemanticModel { get; set; }

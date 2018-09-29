@@ -6,20 +6,21 @@ namespace PerformanceAnalyzer.Test
 {
     using System;
     using System.Linq;
+    using System.Threading.Tasks;
     using Microsoft.CodeAnalysis;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     /// <summary>
     /// Main executable that runs all the tests included in this project.
     /// </summary>
-    internal class Program
+    internal static class Program
     {
         /// <summary>
         /// Program main entry point.
         /// </summary>
         /// <param name="args">Command line arguments.</param>
         /// <returns>Returns number of failed tests.</returns>
-        private static int Main(string[] args)
+        private static async Task<int> Main(string[] args)
         {
             ConsoleColor defaultColor = Console.ForegroundColor;
             int failCount = 0;
@@ -29,8 +30,8 @@ namespace PerformanceAnalyzer.Test
                 waitEnd = true;
             }
 
-            CodePathTests testInstance = new CodePathTests();
-            testInstance.TestTryPath1();
+            var testInstance = new AwaitTests();
+            await testInstance.TestForAwaitInForEachInsideExpression();
             /*
             var testMethods = typeof(MemoizationUnitTests).GetMethods();
             foreach (var testMethod in testMethods)
