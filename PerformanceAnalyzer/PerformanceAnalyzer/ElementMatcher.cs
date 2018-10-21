@@ -51,6 +51,32 @@ namespace PerformanceAnalyzer
             }
         }
 
+        public bool Equals(ExpressionSyntax x, SyntaxToken y)
+        {
+            if (x == null)
+            {
+                if (y == null)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else if (y == null)
+            {
+                return false;
+            }
+            else
+            {
+                var symbol1 = this.analyzer.SemanticModel.GetSymbolInfo(x).Symbol;
+
+                // Both are declared in same place. Consider as same.
+                return symbol1.DeclaringSyntaxReferences[0].GetSyntax(System.Threading.CancellationToken.None) == y.Parent;
+            }
+        }
+
         public int GetHashCode(ExpressionSyntax obj)
         {
             if (obj.SyntaxTree == this.analyzer.SemanticModel.SyntaxTree)

@@ -67,9 +67,12 @@ namespace PerformanceAnalyzer
 
                 if (first.SyntaxNode != null)
                 {
-                    foreach (var statementPart in first.SyntaxNode.DescendantNodesAndSelf())
+                    if (!(first.SyntaxNode is ForEachStatementSyntax))
                     {
-                        this.ProcessNode(statementPart, readCounts);
+                        foreach (var statementPart in first.SyntaxNode.DescendantNodesAndSelf())
+                        {
+                            this.ProcessNode(statementPart, readCounts);
+                        }
                     }
                 }
 
@@ -95,9 +98,21 @@ namespace PerformanceAnalyzer
                 {
                     foreach (var node in cycle)
                     {
-                        if (node.SyntaxNode is ExpressionSyntax expressionStatement)
+                        if (node.SyntaxNode is ForEachStatementSyntax forEachStatementSyntax)
                         {
-                            foreach (var statementPart in expressionStatement.DescendantNodesAndSelf())
+                            // If cycle contains a foreach statement, reset read counter for variable.
+                            //if (forEachStatementSyntax.Expression is IdentifierNameSyntax identifierNameSyntax)
+                            //{
+                            this.VariableChanged(forEachStatementSyntax.Identifier, readCounts);
+                            //}
+                            //else
+                            //{
+                            //    throw new InvalidOperationException();
+                            //}
+                        }
+                        else if (node.SyntaxNode != null)
+                        {
+                            foreach (var statementPart in node.SyntaxNode.DescendantNodesAndSelf())
                             {
                                 this.ProcessNode(statementPart, readCounts);
                             }
@@ -299,6 +314,18 @@ namespace PerformanceAnalyzer
             {
                 // If the varible matches to some of our dictionary search keys, reset that dictionary search counter.
                 if (this.matcher.Equals(kvp.Key.Item2, expression) || this.matcher.Equals(kvp.Key.Item1, expression))
+                {
+                    kvp.Value.Reset();
+                }
+            }
+        }
+
+        private void VariableChanged(SyntaxToken token, ReadCounter readCounts)
+        {
+            foreach (var kvp in readCounts)
+            {
+                // If the varible matches to some of our dictionary search keys, reset that dictionary search counter.
+                if (this.matcher.Equals(kvp.Key.Item2, token) || this.matcher.Equals(kvp.Key.Item1, token))
                 {
                     kvp.Value.Reset();
                 }
@@ -522,7 +549,7 @@ namespace PerformanceAnalyzer
                 {
                     // There was already a span. Combine both spans to a new one.
                     this.start = Math.Min(node.SpanStart, this.start);
-                    this.end = Math.Max(node.Span.End, this.start);
+                    this.end = Math.Max(node.Span.End, this.end);
                 }
             }
 

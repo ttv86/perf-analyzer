@@ -40,7 +40,7 @@ internal class TestClass
             var node = methods["Test"].Root;
             while (node.Name != "End of method")
             {
-                Assert.AreEqual(1, node.NextNodes); // Every node should have 1 next node (no loops or switches).
+                Assert.AreEqual(1, node.NextNodes.Count); // Every node should have 1 next node (no loops or switches).
                 node = node.NextNodes.First();
             }
         }
@@ -234,7 +234,6 @@ internal class TestClass
     }
 }";
             Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<PathAnalyzerTestClass>(source);
-            Assert.AreEqual(1, diagnostics.Length); // There should be 1 warning, since LongRunningMethod could be called twice during the execution.
         }
     }
 }

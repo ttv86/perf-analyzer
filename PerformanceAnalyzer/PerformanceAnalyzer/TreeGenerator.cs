@@ -91,83 +91,91 @@ namespace PerformanceAnalyzer
             ExecutionPathNode prevNode = startNode;
             foreach (StatementSyntax statement in statements)
             {
-                ExecutionPathNode statementNode = new ExecutionPathNode() { SyntaxNode = statement };
-                prevNode.CreatePathTo(statementNode);
-                switch (statement)
+                ExecutionPathNode statementNode;
+                if (statement is ExpressionStatementSyntax expressionStatementSyntax)
                 {
-                    // Branching (If & switch):
-                    case IfStatementSyntax ifStatement:
-                        statementNode = TreeGenerator.SplitIf(ifStatement, statementNode, splitInfo);
-                        break;
-                    case SwitchStatementSyntax switchStatement:
-                        statementNode = TreeGenerator.SplitSwitch(switchStatement, statementNode, splitInfo);
-                        break;
+                    statementNode = TreeGenerator.SplitExpression(expressionStatementSyntax.Expression, prevNode);
+                }
+                else
+                {
+                    statementNode = new ExecutionPathNode() { SyntaxNode = statement };
+                    prevNode.CreatePathTo(statementNode);
+                    switch (statement)
+                    {
+                        // Branching (If & switch):
+                        case IfStatementSyntax ifStatement:
+                            statementNode = TreeGenerator.SplitIf(ifStatement, statementNode, splitInfo);
+                            break;
+                        case SwitchStatementSyntax switchStatement:
+                            statementNode = TreeGenerator.SplitSwitch(switchStatement, statementNode, splitInfo);
+                            break;
 
-                    // Loops:
-                    case ForStatementSyntax forStatement:
-                        statementNode = TreeGenerator.SplitFor(forStatement, statementNode, splitInfo);
-                        break;
-                    case ForEachStatementSyntax forEachStatement:
-                        statementNode = TreeGenerator.SplitForeach(forEachStatement, statementNode, splitInfo);
-                        break;
-                    ////case ForEachVariableStatementSyntax // Special case of foreach
-                    case DoStatementSyntax doStatement:
-                        statementNode = TreeGenerator.SplitDo(doStatement, statementNode, splitInfo);
-                        break;
-                    case WhileStatementSyntax whileStatement:
-                        statementNode = TreeGenerator.SplitWhile(whileStatement, statementNode, splitInfo);
-                        break;
-                    case TryStatementSyntax tryStatement:
-                        statementNode = TreeGenerator.SplitTry(tryStatement, statementNode, splitInfo);
-                        break;
+                        // Loops:
+                        case ForStatementSyntax forStatement:
+                            statementNode = TreeGenerator.SplitFor(forStatement, statementNode, splitInfo);
+                            break;
+                        case ForEachStatementSyntax forEachStatement:
+                            statementNode = TreeGenerator.SplitForeach(forEachStatement, statementNode, splitInfo);
+                            break;
+                        ////case ForEachVariableStatementSyntax // Special case of foreach
+                        case DoStatementSyntax doStatement:
+                            statementNode = TreeGenerator.SplitDo(doStatement, statementNode, splitInfo);
+                            break;
+                        case WhileStatementSyntax whileStatement:
+                            statementNode = TreeGenerator.SplitWhile(whileStatement, statementNode, splitInfo);
+                            break;
+                        case TryStatementSyntax tryStatement:
+                            statementNode = TreeGenerator.SplitTry(tryStatement, statementNode, splitInfo);
+                            break;
 
-                    // Continue & Break:
-                    case ContinueStatementSyntax continueStatement:
-                        statementNode.CreatePathTo(splitInfo.LoopStartNode);
-                        return null;
-                    case BreakStatementSyntax breakStatement:
-                        statementNode.CreatePathTo(splitInfo.LoopOrSwitchEndNode);
-                        return null;
+                        // Continue & Break:
+                        case ContinueStatementSyntax continueStatement:
+                            statementNode.CreatePathTo(splitInfo.LoopStartNode);
+                            return null;
+                        case BreakStatementSyntax breakStatement:
+                            statementNode.CreatePathTo(splitInfo.LoopOrSwitchEndNode);
+                            return null;
 
-                    // Return:
-                    case ReturnStatementSyntax returnStatement:
-                        statementNode.CreatePathTo(splitInfo.MethodEndNode);
-                        return null;
-                    ////case YieldStatementSyntax
+                        // Return:
+                        case ReturnStatementSyntax returnStatement:
+                            statementNode.CreatePathTo(splitInfo.MethodEndNode);
+                            return null;
+                        ////case YieldStatementSyntax
 
-                    // Inline:
-                    case ExpressionStatementSyntax expressionStatement:
-                        statementNode = TreeGenerator.SplitExpression(expressionStatement.Expression, statementNode);
-                        break;
-                    case LocalDeclarationStatementSyntax localDeclarationStatement:
-                        statementNode = TreeGenerator.SplitLocalDeclaration(localDeclarationStatement.Declaration.Variables, statementNode);
-                        break;
+                        // Inline:
+                        ////case ExpressionStatementSyntax expressionStatement:
+                        ////    statementNode = TreeGenerator.SplitExpression(expressionStatement.Expression, statementNode);
+                        ////    break;
+                        case LocalDeclarationStatementSyntax localDeclarationStatement:
+                            statementNode = TreeGenerator.SplitLocalDeclaration(localDeclarationStatement.Declaration.Variables, statementNode);
+                            break;
 
-                    // Blocks:
-                    ////case BlockSyntax
-                    ////case CheckedStatementSyntax
-                    ////case FixedStatementSyntax
-                    ////case LockStatementSyntax
-                    ////case UnsafeStatementSyntax
-                    ////case UsingStatementSyntax
+                        // Blocks:
+                        ////case BlockSyntax
+                        ////case CheckedStatementSyntax
+                        ////case FixedStatementSyntax
+                        ////case LockStatementSyntax
+                        ////case UnsafeStatementSyntax
+                        ////case UsingStatementSyntax
 
-                    // Simple statements:
-                    ////case ExpressionStatementSyntax
-                    ////case ThrowStatementSyntax
-                    ////case GotoStatementSyntax
-                    ////case LabeledStatementSyntax
-                    ////case LocalDeclarationStatementSyntax
+                        // Simple statements:
+                        ////case ExpressionStatementSyntax
+                        ////case ThrowStatementSyntax
+                        ////case GotoStatementSyntax
+                        ////case LabeledStatementSyntax
+                        ////case LocalDeclarationStatementSyntax
 
-                    // Handled elesewhere:
-                    ////case LocalFunctionStatementSyntax
+                        // Handled elesewhere:
+                        ////case LocalFunctionStatementSyntax
 
-                    case EmptyStatementSyntax _:
-                        break; // Do nothing
+                        case EmptyStatementSyntax _:
+                            break; // Do nothing
 #if DEBUG
-                    default:
-                        System.Diagnostics.Debug.WriteLine("Unsupported statement type: " + statement.GetType().Name);
-                        break; // Do nothing
+                        default:
+                            System.Diagnostics.Debug.WriteLine("Unsupported statement type: " + statement.GetType().Name);
+                            break; // Do nothing
 #endif
+                    }
                 }
 
                 if (statementNode.PreviousNodes.Count == 0)
@@ -210,18 +218,14 @@ namespace PerformanceAnalyzer
             return result;
         }
 
-        private static ExecutionPathNode SplitExpression(ExpressionSyntax expression, ExecutionPathNode statementNode)
+        private static ExecutionPathNode SplitExpression(ExpressionSyntax expression, ExecutionPathNode previousPathNode)
         {
-            var nextNode = new ExecutionPathNode()
-            {
-                SyntaxNode = expression
-            };
-
-            statementNode.CreatePathTo(nextNode);
+            ExecutionPathNode nextNode = new ExecutionPathNode() { SyntaxNode = expression };
+            previousPathNode.CreatePathTo(nextNode);
             switch (expression)
             {
                 // Some expressions may contain complex equations within.
-                case AwaitExpressionSyntax awaitExpression:
+                case AwaitExpressionSyntax awaitExpression:                    
                     return TreeGenerator.SplitExpression(awaitExpression.Expression, nextNode);
                 case ParenthesizedExpressionSyntax parenthesizedExpressionSyntax:
                     return TreeGenerator.SplitExpression(parenthesizedExpressionSyntax.Expression, nextNode);
@@ -229,6 +233,9 @@ namespace PerformanceAnalyzer
                     var leftNode = TreeGenerator.SplitExpression(binaryExpressionSyntax.Left, nextNode);
                     return TreeGenerator.SplitExpression(binaryExpressionSyntax.Right, leftNode);
                 case ConditionalAccessExpressionSyntax conditionalAccessExpression:
+#if DEBUG
+                    throw new NotImplementedException();
+#endif
 
                 // Most expressions are so simple, we can just leave now.
                 default:
@@ -360,7 +367,7 @@ namespace PerformanceAnalyzer
             beginForEachNode.Name = "Begin foreach";
             beginForEachNode.SyntaxNode = forEachStatement.Expression;
 
-            ExecutionPathNode beginForEachBody = new ExecutionPathNode() { Name = "Begin foreach body" };
+            ExecutionPathNode beginForEachBody = new ExecutionPathNode() { Name = "Begin foreach body", SyntaxNode = forEachStatement };
             beginForEachNode.CreatePathTo(beginForEachBody);
 
             ExecutionPathNode endForEachNode = new ExecutionPathNode() { Name = "End foreach" };
