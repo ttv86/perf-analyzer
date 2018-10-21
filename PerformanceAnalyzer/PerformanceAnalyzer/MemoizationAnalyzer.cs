@@ -7,6 +7,7 @@ namespace PerformanceAnalyzer
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Diagnostics;
     using System.Linq;
     using System.Reflection;
     using Microsoft.CodeAnalysis;
@@ -144,7 +145,7 @@ namespace PerformanceAnalyzer
                     }
                     else
                     {
-                        throw new NotSupportedException();
+                        Debug.WriteLine("Unexpected amount of parameters");
                     }
                 }
                 else if (this.IsDictionaryOrListMethod(memberAccess, this.SemanticModel, "Add"))
@@ -158,7 +159,7 @@ namespace PerformanceAnalyzer
                     }
                     else
                     {
-                        throw new NotSupportedException();
+                        Debug.WriteLine("Unexpected amount of parameters");
                     }
                 }
                 else if (this.IsDictionaryOrListMethod(memberAccess, this.SemanticModel, "Clear"))
@@ -172,7 +173,7 @@ namespace PerformanceAnalyzer
                     }
                     else
                     {
-                        throw new NotSupportedException();
+                        Debug.WriteLine("Unexpected amount of parameters");
                     }
                 }
             }
@@ -201,6 +202,10 @@ namespace PerformanceAnalyzer
                     {
                         this.ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression, readCounts);
                         return;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Unexpected amount of parameters");
                     }
                 }
                 else
@@ -437,8 +442,8 @@ namespace PerformanceAnalyzer
                 return false;
             }
 
-            // Test only types from mscorlib (.NET Framework) or System.Runtime (.Net standard)
-            if ((orig.ContainingAssembly.Name == "mscorlib") || (orig.ContainingAssembly.Name == "System.Runtime"))
+            // Test only types from mscorlib (.NET Framework) or System.Runtime (.Net standard) or System.Private.CoreLib (.Net Core)
+            if ((orig.ContainingAssembly.Name == "mscorlib") || (orig.ContainingAssembly.Name == "System.Runtime") || (orig.ContainingAssembly.Name == "System.Private.CoreLib"))
             {
                 if ((orig.Name == "List") || (orig.Name == "IList") || (orig.Name == "IReadOnlyList"))
                 {

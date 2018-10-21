@@ -30,8 +30,8 @@ namespace PerformanceAnalyzer.Test
                 waitEnd = true;
             }
 
-            var testInstance = new AwaitTests();
-            await testInstance.TestForAwaitInForEachInsideExpression();
+            var testInstance = new MemoizationUnitTests();
+            await testInstance.TestSearchOnForEach();
             /*
             var testMethods = typeof(MemoizationUnitTests).GetMethods();
             foreach (var testMethod in testMethods)

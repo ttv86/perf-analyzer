@@ -25,16 +25,19 @@ namespace PerformanceAnalyzer
             ExecutionPath path = new ExecutionPath();
             ExecutionPathNode startOfMethod = path.Root;
             startOfMethod.Name = "Start of method";
-            ExecutionPathNode endOfMethod = new ExecutionPathNode()
+            if (method.Body != null)
             {
-                Name = "End of method"
-            };
+                ExecutionPathNode endOfMethod = new ExecutionPathNode()
+                {
+                    Name = "End of method"
+                };
 
-            SplitInfo splitInfo = new SplitInfo() { MethodEndNode = endOfMethod };
-            ExecutionPathNode lastNode = TreeGenerator.SplitAndAnalyzeBlock(startOfMethod, method.Body, splitInfo);
-            if (lastNode != null)
-            {
-                lastNode.CreatePathTo(endOfMethod);
+                SplitInfo splitInfo = new SplitInfo() { MethodEndNode = endOfMethod };
+                ExecutionPathNode lastNode = TreeGenerator.SplitAndAnalyzeBlock(startOfMethod, method.Body, splitInfo);
+                if (lastNode != null)
+                {
+                    lastNode.CreatePathTo(endOfMethod);
+                }
             }
 
             return path;
