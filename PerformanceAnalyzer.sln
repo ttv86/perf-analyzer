@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer", "PerformanceAnalyzer\PerformanceAnalyzer\PerformanceAnalyzer.csproj", "{302740CF-19AB-4705-B43A-C9495247F49D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Test", "PerformanceAnalyzer\PerformanceAnalyzer.Test\PerformanceAnalyzer.Test.csproj", "{B0375F5F-8382-4A8F-8482-7F5929D23290}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PerformanceAnalyzer.Test", "PerformanceAnalyzer\PerformanceAnalyzer.Test\PerformanceAnalyzer.Test.csproj", "{B0375F5F-8382-4A8F-8482-7F5929D23290}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceAnalyzer.Vsix", "PerformanceAnalyzer\PerformanceAnalyzer.Vsix\PerformanceAnalyzer.Vsix.csproj", "{0C106BBC-61C0-4D8A-95B8-69BE0AA68001}"
 EndProject
