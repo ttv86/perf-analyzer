@@ -43,13 +43,17 @@ namespace PerformanceAnalyzer
         /// </summary>
         internal void CreateUniqueDiagnostic(Action<Diagnostic> callback, DiagnosticDescriptor descriptor, Location location, params object[] args)
         {
-            Tuple<int, int> key = new Tuple<int, int>(location.SourceSpan.Start, location.SourceSpan.End);
-            if (this.createdDiagnostics.Contains(key))
+            if (location != null)
             {
-                return;
+                Tuple<int, int> key = new Tuple<int, int>(location.SourceSpan.Start, location.SourceSpan.End);
+                if (this.createdDiagnostics.Contains(key))
+                {
+                    return;
+                }
+
+                this.createdDiagnostics.Add(key);
             }
 
-            this.createdDiagnostics.Add(key);
             callback?.Invoke(Diagnostic.Create(descriptor, location, args));
         }
     }

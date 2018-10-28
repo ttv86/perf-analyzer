@@ -48,22 +48,45 @@ namespace PerformanceAnalyzer
 
         protected override void AnalyzeMethod(MethodDeclarationSyntax method, ExecutionPath path, Action<Diagnostic> callback)
         {
-            // A counter of how many times each collection is read using a given variable.
-            var readCounts = new ReadCounter(this.matcher);
+            AnalyzeNonCyclic(method, path, callback);
+            AnalyzeCyclic(method, path, callback);
+        }
 
+        private void AnalyzeNonCyclic(MethodDeclarationSyntax method, ExecutionPath path, Action<Diagnostic> callback)
+        {
             // First go throught codes ignoring cycles.
             HashSet<ExecutionPathNode> analyzedNodes = new HashSet<ExecutionPathNode>();
-            Queue<ExecutionPathNode> analyzableNodes = new Queue<ExecutionPathNode>();
-            analyzableNodes.Enqueue(path.Root);
-            while (analyzableNodes.Count > 0)
+            Queue<ExecutionPathNode> analyzeNodes = new Queue<ExecutionPathNode>(); // Normal list is First-In-First-Out
+            Stack<ExecutionPathNode> analyzeNodesLowPriority = new Stack<ExecutionPathNode>(); // Low priorities are First-In-Last-Out
+            analyzeNodes.Enqueue(path.Root);
+            // A counter of how many times each collection is read using a given variable.
+            path.Root.ReadCounts = new ReadCounter(this.matcher);
+            var tails = new List<ExecutionPathNode>();
+            while ((analyzeNodes.Count > 0) || (analyzeNodesLowPriority.Count > 0))
             {
-                var first = analyzableNodes.Dequeue();
+                ExecutionPathNode first;
+                if (analyzeNodes.Count > 0)
+                {
+                    first = analyzeNodes.Dequeue();
+                    if (first.PreviousNodes.Count > 1)
+                    {
+                        // Sent item to low-priority queue, so if there are any other paths leading here, we process them first.
+                        analyzeNodesLowPriority.Push(first);
+                        continue;
+                    }
+                }
+                else
+                {
+                    first = analyzeNodesLowPriority.Pop();
+                }
+
                 if (analyzedNodes.Contains(first))
                 {
                     // This node was already analyzed. We can skip it.
                     continue;
                 }
 
+                var readCounts = first.ReadCounts;
                 if (first.SyntaxNode != null)
                 {
                     // Foreach statements have a special case below.
@@ -71,21 +94,36 @@ namespace PerformanceAnalyzer
                     {
                         foreach (var statementPart in first.SyntaxNode.DescendantNodesAndSelf())
                         {
-                            this.ProcessNode(statementPart, readCounts);
+                            this.ProcessNode(statementPart, ref readCounts);
                         }
                     }
                 }
 
                 analyzedNodes.Add(first); // Mark this node as analyzed.
-                foreach (var node in first.NextNodes)
+                if (first.NextNodes.Count > 0)
                 {
-                    analyzableNodes.Enqueue(node);
+                    foreach (var node in first.NextNodes)
+                    {
+                        node.ReadCounts = readCounts.Merge(node.ReadCounts);
+                        analyzeNodes.Enqueue(node);
+                    }
+                }
+                else
+                {
+                    tails.Add(first);
                 }
             }
 
             // If any dictionary was read more then once with same parameters, raise an error.
-            ReportFindings(method, callback, readCounts);
+            foreach (var tail in tails)
+            {
+                ReportFindings(method, callback, tail.ReadCounts);
+            }
+        }
 
+        private void AnalyzeCyclic(MethodDeclarationSyntax method, ExecutionPath path, Action<Diagnostic> callback)
+        {
+            ReadCounter readCounts = new ReadCounter(this.matcher);
             // Then find all cycles, and check if there's anything interesting.
             var cycles = GraphHelper.FindAllCycles<ExecutionPathNode>(path);
             foreach (IEnumerable<ExecutionPathNode> cycle in cycles)
@@ -102,13 +140,13 @@ namespace PerformanceAnalyzer
                         {
                             // Foreach statements are a special case, since there is no assignment operation in code.
                             // If cycle contains a foreach statement, reset read counter for variable.
-                            this.VariableChanged(forEachStatementSyntax.Identifier, readCounts);
+                            this.VariableChanged(forEachStatementSyntax.Identifier, ref readCounts);
                         }
                         else if (node.SyntaxNode != null)
                         {
                             foreach (var statementPart in node.SyntaxNode.DescendantNodesAndSelf())
                             {
-                                this.ProcessNode(statementPart, readCounts);
+                                this.ProcessNode(statementPart, ref readCounts);
                             }
                         }
                     }
@@ -132,12 +170,12 @@ namespace PerformanceAnalyzer
             }
         }
 
-        private void ProcessNode(SyntaxNode node, ReadCounter readCounts)
+        private void ProcessNode(SyntaxNode node, ref ReadCounter readCounts)
         {
             // When variable is used either with ref or out, mark it as possible changed.
             if ((node is ArgumentSyntax argument) && !string.IsNullOrEmpty(argument.RefOrOutKeyword.Text))
             {
-                this.VariableChanged(argument.Expression, readCounts);
+                this.VariableChanged(argument.Expression, ref readCounts);
             }
 
             // Member access aka method calls.
@@ -149,7 +187,7 @@ namespace PerformanceAnalyzer
                     // These methods do not change the state of the dictionary. We shouldn't keep calling them again with same parameters until the state has changed.
                     if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count >= 1))
                     {
-                        this.ReadValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression, readCounts);
+                        this.ReadValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression, ref readCounts);
                         return;
                     }
                     else
@@ -163,7 +201,7 @@ namespace PerformanceAnalyzer
                     if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 2))
                     {
                         // Add should have 2 parameters
-                        this.WriteValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression, readCounts);
+                        this.WriteValue(memberAccess.Expression, invocation.ArgumentList.Arguments.First().Expression, ref readCounts);
                         return;
                     }
                     else
@@ -177,7 +215,7 @@ namespace PerformanceAnalyzer
                     if ((memberAccess.Parent is InvocationExpressionSyntax invocation) && (invocation.ArgumentList.Arguments.Count == 0))
                     {
                         // Clear should have 0 parameters.
-                        this.ClearDictionary(memberAccess.Expression, readCounts);
+                        this.ClearDictionary(memberAccess.Expression, ref readCounts);
                         return;
                     }
                     else
@@ -192,12 +230,12 @@ namespace PerformanceAnalyzer
                 if (this.IsDictionaryOrList(assignmentExpression.Left))
                 {
                     // Reference to a dictionary was changed. No need to track previous instance anymore.
-                    this.ClearDictionary(assignmentExpression.Left, readCounts);
+                    this.ClearDictionary(assignmentExpression.Left, ref readCounts);
                 }
                 else
                 {
                     // Value of a method was changed. It can be now considered as a new value.
-                    this.VariableChanged(assignmentExpression.Left, readCounts);
+                    this.VariableChanged(assignmentExpression.Left, ref readCounts);
                 }
             }
 
@@ -209,7 +247,7 @@ namespace PerformanceAnalyzer
                 {
                     if (elementAccess.ArgumentList.Arguments.Count() == 1)
                     {
-                        this.ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression, readCounts);
+                        this.ReadValue(elementAccess.Expression, elementAccess.ArgumentList.Arguments.First().Expression, ref readCounts);
                         return;
                     }
                     else
@@ -233,14 +271,14 @@ namespace PerformanceAnalyzer
                     var tuple = this.GetDictionaryAccess(assignment.Left);
                     if (tuple != null)
                     {
-                        this.WriteValue(tuple.Item1, tuple.Item2, readCounts);
+                        this.WriteValue(tuple.Item1, tuple.Item2, ref readCounts);
                         return;
                     }
                 }
             }
 
             // Unary operations execute both read and write actions
-            if (this.TestUnary(node, readCounts))
+            if (this.TestUnary(node, ref readCounts))
             {
                 // Node was a unary operation. No need to process it more.
                 return;
@@ -253,7 +291,7 @@ namespace PerformanceAnalyzer
         /// <param name="node"></param>
         /// <param name="skippedNodes"></param>
         /// <returns></returns>
-        private bool TestUnary(SyntaxNode node, ReadCounter readCounts)
+        private bool TestUnary(SyntaxNode node, ref ReadCounter readCounts)
         {
             // Unary prefix (++x, --x)
             if ((node is PrefixUnaryExpressionSyntax prefixUnary) && ((prefixUnary.OperatorToken.Text == "++") || (prefixUnary.OperatorToken.Text == "--")))
@@ -263,7 +301,7 @@ namespace PerformanceAnalyzer
                     var tuple = this.GetDictionaryAccess(prefixUnary.Operand);
                     if (tuple != null)
                     {
-                        this.WriteValue(tuple.Item1, tuple.Item2, readCounts);
+                        this.WriteValue(tuple.Item1, tuple.Item2, ref readCounts);
                         return true;
                     }
                     else
@@ -273,7 +311,7 @@ namespace PerformanceAnalyzer
                 }
                 else
                 {
-                    this.VariableChanged(prefixUnary.Operand, readCounts);
+                    this.VariableChanged(prefixUnary.Operand, ref readCounts);
                 }
             }
 
@@ -285,7 +323,7 @@ namespace PerformanceAnalyzer
                     var tuple = this.GetDictionaryAccess(postfixUnary.Operand);
                     if (tuple != null)
                     {
-                        this.WriteValue(tuple.Item1, tuple.Item2, readCounts);
+                        this.WriteValue(tuple.Item1, tuple.Item2, ref readCounts);
                         return true;
                     }
                     else
@@ -295,33 +333,35 @@ namespace PerformanceAnalyzer
                 }
                 else
                 {
-                    this.VariableChanged(postfixUnary.Operand, readCounts);
+                    this.VariableChanged(postfixUnary.Operand, ref readCounts);
                 }
             }
 
             return false;
         }
 
-        private void VariableChanged(ExpressionSyntax expression, ReadCounter readCounts)
+        private void VariableChanged(ExpressionSyntax expression, ref ReadCounter readCounts)
         {
             foreach (var kvp in readCounts)
             {
                 // If the varible matches to some of our dictionary search keys, reset that dictionary search counter.
                 if (this.matcher.Equals(kvp.Key.Item2, expression) || this.matcher.Equals(kvp.Key.Item1, expression))
                 {
-                    kvp.Value.Reset();
+                    readCounts = readCounts.Reset(kvp.Key);
+                    break;
                 }
             }
         }
 
-        private void VariableChanged(SyntaxToken token, ReadCounter readCounts)
+        private void VariableChanged(SyntaxToken token, ref ReadCounter readCounts)
         {
             foreach (var kvp in readCounts)
             {
                 // If the varible matches to some of our dictionary search keys, reset that dictionary search counter.
                 if (this.matcher.Equals(kvp.Key.Item2, token) || this.matcher.Equals(kvp.Key.Item1, token))
                 {
-                    kvp.Value.Reset();
+                    readCounts = readCounts.Reset(kvp.Key);
+                    break;
                 }
             }
         }
@@ -343,45 +383,37 @@ namespace PerformanceAnalyzer
         /// <summary>
         /// A collection value was read. Increase the needed value counter.
         /// </summary>
-        private void ReadValue(ExpressionSyntax expression, ExpressionSyntax key, ReadCounter readCounts)
+        private void ReadValue(ExpressionSyntax expression, ExpressionSyntax key, ref ReadCounter readCounts)
         {
             System.Diagnostics.Debug.WriteLine($"Reading {expression} by key {key} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
-            if (!readCounts.TryGetValue(searchKey, out Counter old))
-            {
-                // This value hasn't been used before. Add it.
-                readCounts.Add(searchKey, old = new Counter(0));
-            }
-
-            old.Increase(expression);
+            readCounts = readCounts.Increment(searchKey);
         }
 
         /// <summary>
         /// A collection value was changed. Reset the needed value counter.
         /// </summary>
-        private void WriteValue(ExpressionSyntax expression, ExpressionSyntax key, ReadCounter readCounts)
+        private void WriteValue(ExpressionSyntax expression, ExpressionSyntax key, ref ReadCounter readCounts)
         {
             System.Diagnostics.Debug.WriteLine($"Writing {expression} by key {key} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
 
             // Try to reset value counter if it has been set.
-            if (readCounts.TryGetValue(searchKey, out Counter old))
-            {
-                old.Reset();
-            }
+            readCounts = readCounts.Reset(searchKey);
         }
 
         /// <summary>
         /// Dictionary is cleared. Reset all value counters on the given dictionary.
         /// </summary>
-        private void ClearDictionary(ExpressionSyntax expression, ReadCounter readCounts)
+        private void ClearDictionary(ExpressionSyntax expression, ref ReadCounter readCounts)
         {
             System.Diagnostics.Debug.WriteLine($"Clearing {expression} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             foreach (var kvp in readCounts)
             {
                 if (this.matcher.Equals(kvp.Key.Item1, expression))
                 {
-                    kvp.Value.Reset();
+                    readCounts = readCounts.Reset(kvp.Key);
+                    break;
                 }
             }
         }

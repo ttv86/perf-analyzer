@@ -38,6 +38,8 @@ namespace PerformanceAnalyzer
         /// </summary>
         public IReadOnlyCollection<ExecutionPathNode> PreviousNodes => this.previousNodes;
 
+        internal ReadCounter ReadCounts { get; set; }
+
         /// <summary>
         /// Returns a string that represents the current node.
         /// </summary>
