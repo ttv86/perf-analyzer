@@ -172,13 +172,13 @@ namespace PerformanceAnalyzer
                             break; // Do nothing
 #if DEBUG
                         default:
-                            System.Diagnostics.Debug.WriteLine("Unsupported statement type: " + statement.GetType().Name);
+                            ////System.Diagnostics.Debug.WriteLine("Unsupported statement type: " + statement.GetType().Name);
                             break; // Do nothing
 #endif
                     }
                 }
 
-                if (statementNode.PreviousNodes.Count == 0)
+                if ((statementNode == null) || (statementNode.PreviousNodes.Count == 0))
                 {
                     return null; // No execution paths left. Leave current block.
                 }
@@ -194,24 +194,15 @@ namespace PerformanceAnalyzer
         private static ExecutionPathNode SplitLocalDeclaration(IEnumerable<VariableDeclaratorSyntax> variables, ExecutionPathNode statementNode)
         {
             ExecutionPathNode result = statementNode;
+            result.SyntaxNode = null;
             foreach (VariableDeclaratorSyntax declaration in variables)
             {
-                ExecutionPathNode variableNode = new ExecutionPathNode()
-                {
-                    Name = declaration.Identifier.Text + "=",
-                    SyntaxNode = declaration
-                };
-                result.CreatePathTo(variableNode);
                 if (declaration.Initializer != null)
                 {
                     // Variable was initialized at declaration.
-                    var valueNode = TreeGenerator.SplitExpression(declaration.Initializer.Value, variableNode);
+                    var valueNode = TreeGenerator.SplitExpression(declaration.Initializer.Value, result);
+                    valueNode.SyntaxNode = declaration;
                     result = valueNode;
-                }
-                else
-                {
-                    // Variable was not initialized at declaration.
-                    result = variableNode;
                 }
             }
 
@@ -232,10 +223,10 @@ namespace PerformanceAnalyzer
                 case BinaryExpressionSyntax binaryExpressionSyntax:
                     var leftNode = TreeGenerator.SplitExpression(binaryExpressionSyntax.Left, nextNode);
                     return TreeGenerator.SplitExpression(binaryExpressionSyntax.Right, leftNode);
-                case ConditionalAccessExpressionSyntax conditionalAccessExpression:
-#if DEBUG
-                    throw new NotImplementedException();
-#endif
+////                case ConditionalAccessExpressionSyntax conditionalAccessExpression:
+////#if DEBUG
+////                    throw new NotImplementedException("ConditionalAccessExpressionSyntax is not supported. " + expression.ToFullString());
+////#endif
 
                 // Most expressions are so simple, we can just leave now.
                 default:

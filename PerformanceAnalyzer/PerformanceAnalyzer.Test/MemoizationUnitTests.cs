@@ -94,6 +94,33 @@ internal class TestClass
         /// Checks that if we read from the list twice with the same key, but on different code paths we don't get an error.
         /// </summary>
         [TestMethod]
+        public async Task TestDictionaryTryGetValueVsAdd()
+        {
+            var testCode = @"using System.Collections.Generic;
+
+internal class TestClass
+{
+    public void Test(IEnumerable<double> list, IDictionary<double, double> localList, double b)
+    {
+        foreach (double a in list) {
+            double c;
+            double d = a;
+            if (localList.TryGetValue(d, out c) {
+                localList[d] = b;
+            } else {
+                localList.Add(a, b);
+            }
+        }
+    }
+}";
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
+            Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings.
+        }
+
+        /// <summary>
+        /// Checks that if we read from the list twice with the same key, but on different code paths we don't get an error.
+        /// </summary>
+        [TestMethod]
         public async Task TestDictionarySearchOnLoop2()
         {
             var testCode = @"using System.Collections.Generic;
@@ -126,6 +153,54 @@ internal class TestClass
         foreach (var key in keys) {
             localList[key].ToString();
         }
+    }
+}";
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
+            Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings. Read value is different each time.
+        }
+
+        /// <summary>
+        /// Checks that if we read from the list twice with the same key reference, but on foreach, so it should be different each time.
+        /// </summary>
+        [TestMethod]
+        public async Task TestSearchOnForEach2()
+        {
+            var testCode = @"using System.Collections.Generic;
+
+internal class TestClass
+{
+    public void Test(IEnumerable<double> keys)
+    {
+        Dictionary<int, int> idDictionary = new Dictionary<int, int>();
+        foreach (var key in keys)
+        {
+            var projectId = key.GetHashCode();
+            idDictionary.Add(projectId, projectId);
+        }
+
+        foreach (var key in keys)
+        {
+            var projectId = idDictionary[key.GetHashCode()];
+        }
+    }
+}";
+            Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);
+            Assert.AreEqual(0, diagnostics.Length); // There shouldn't be any warnings. Read value is different each time.
+        }
+
+        /// <summary>
+        /// Checks that if we read from the list twice with the same key reference, but on foreach, so it should be different each time.
+        /// </summary>
+        [TestMethod]
+        public async Task TestTernary()
+        {
+            var testCode = @"using System.Collections.Generic;
+
+internal class TestClass
+{
+    public void Test(Dictionary<int, int>, int x)
+    {
+        idDictionary[x == 0 ? 1 : 2].ToString();
     }
 }";
             Diagnostic[] diagnostics = await DiagnosticVerifier.CreateAndRunAnalyzerAsync<MemoizationAnalyzer>(testCode);

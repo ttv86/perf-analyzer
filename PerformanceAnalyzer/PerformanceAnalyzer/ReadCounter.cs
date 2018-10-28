@@ -46,17 +46,17 @@ namespace PerformanceAnalyzer
         /// </summary>
         /// <param name="key">Key to read with.</param>
         /// <returns>New ReadCounter with updated data.</returns>
-        internal ReadCounter Increment(Tuple<ExpressionSyntax, ExpressionSyntax> key)
+        internal ReadCounter Increment(Tuple<ExpressionSyntax, ExpressionSyntax> key, Location location)
         {
             Counter newCounter;
             if (this.dataStore.TryGetValue(key, out Counter old))
             {
-                newCounter = new Counter(old.Current + 1, Math.Max(old.Max, old.Current + 1));
+                newCounter = old.Increment(location);
             }
             else
             {
                 // This value hasn't been used before. Add it.
-                newCounter = new Counter(1, 1);
+                newCounter = new Counter(1, location);
             }
 
             return new ReadCounter(this.dataStore.SetItem(key, newCounter));
@@ -72,12 +72,11 @@ namespace PerformanceAnalyzer
             Counter newCounter;
             if (this.dataStore.TryGetValue(key, out Counter old))
             {
-                newCounter = new Counter(0, old.Max);
+                newCounter = old.Reset();
             }
             else
             {
-                // This value hasn't been used before. Add it.
-                newCounter = new Counter(0, 0);
+                newCounter = new Counter(0, null);
             }
 
             return new ReadCounter(this.dataStore.SetItem(key, newCounter));
@@ -100,7 +99,7 @@ namespace PerformanceAnalyzer
             {
                 if (newData.TryGetValue(kvp.Key, out Counter oldValue))
                 {
-                    newData[kvp.Key] = new Counter(Math.Max(kvp.Value.Current, oldValue.Current), Math.Max(kvp.Value.Max, oldValue.Max));
+                    newData[kvp.Key] = kvp.Value.Merge(oldValue);
                 }
                 else
                 {
@@ -114,20 +113,21 @@ namespace PerformanceAnalyzer
 
     internal class Counter
     {
-        public Counter(int current, int max)
+        private Location currentLocation;
+        private Location maxLocation;
+
+        private Counter(int current, int max)
         {
             this.Current = current;
             this.Max = max;
-            this.Start = -1;
-            this.End = -1;
         }
 
-        public Counter(int current, int max, int start, int end)
+        public Counter(int current, Location location)
         {
             this.Current = current;
-            this.Max = max;
-            this.Start = start;
-            this.End = end;
+            this.Max = current;
+            this.currentLocation = location;
+            this.maxLocation = location;
         }
 
         /// <summary>
@@ -140,18 +140,90 @@ namespace PerformanceAnalyzer
         /// </summary>
         public int Max { get; }
 
-        public int Start { get; }
+        public Counter Increment(Location location)
+        {
+            Location newCurrentLocation, newMaxLocation;
 
-        public int End { get; }
+            if (this.currentLocation != null)
+            {
+                newCurrentLocation = Location.Create(
+                    this.currentLocation.SourceTree,
+                    TextSpan.FromBounds(
+                        Math.Min(location.SourceSpan.Start, this.currentLocation.SourceSpan.Start),
+                        Math.Max(location.SourceSpan.End, this.currentLocation.SourceSpan.End)));
+            }
+            else
+            {
+                newCurrentLocation = location;
+            }
+
+            int newCurrent = this.Current + 1;
+            int newMax;
+            if (newCurrent > this.Max)
+            {
+                newMaxLocation = newCurrentLocation;
+                newMax = newCurrent;
+            }
+            else
+            {
+                newMax = this.Max;
+                newMaxLocation = this.maxLocation;
+            }
+
+            var result = new Counter(newCurrent, newMax);
+            result.currentLocation = newCurrentLocation;
+            result.maxLocation = newMaxLocation;
+            return result;
+        }
 
         internal Location GetLocation(SyntaxTree syntaxTree)
         {
-            if (this.Start == -1)
+            return maxLocation;
+        }
+
+        internal Counter Reset()
+        {
+            var result = new Counter(0, this.Max);
+            result.currentLocation = null;
+            result.maxLocation = this.maxLocation;
+            return result;
+        }
+
+        internal Counter Merge(Counter oldValue)
+        {
+            int max;
+            Location maxLocation;
+            if (this.Max > oldValue.Max)
             {
-                return null;
+                max = this.Max;
+                maxLocation = this.maxLocation;
+            }
+            else
+            {
+                max = oldValue.Max;
+                maxLocation = oldValue.maxLocation;
             }
 
-            return Location.Create(syntaxTree, TextSpan.FromBounds(this.Start, this.End));
+            var result = new Counter(Math.Max(oldValue.Current, this.Current), max);
+            result.maxLocation = maxLocation;
+            if (this.currentLocation == null)
+            {
+                result.currentLocation = oldValue.currentLocation;
+            }
+            else if (oldValue.currentLocation == null)
+            {
+                result.currentLocation = this.currentLocation;
+            }
+            else
+            {
+                result.currentLocation = Location.Create(
+                    this.currentLocation.SourceTree,
+                    TextSpan.FromBounds(
+                        Math.Min(currentLocation.SourceSpan.Start, oldValue.currentLocation.SourceSpan.Start),
+                        Math.Max(currentLocation.SourceSpan.End, oldValue.currentLocation.SourceSpan.End)));
+            }
+
+            return result;
         }
     }
 }

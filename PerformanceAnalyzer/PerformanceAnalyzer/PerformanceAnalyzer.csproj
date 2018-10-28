@@ -39,4 +39,8 @@
     <None Update="tools\*.ps1" CopyToOutputDirectory="Always" Pack="true" PackagePath="" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetDir)$(ProjectName).*&quot; &quot;D:\Users\TIMO\Documents\Visual Studio 2017\Projects\CompilerTest\CompilerTest\bin\Debug\netcoreapp2.1\&quot;" />
+  </Target>
+
 </Project>

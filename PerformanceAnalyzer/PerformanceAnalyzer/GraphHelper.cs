@@ -26,7 +26,7 @@ namespace PerformanceAnalyzer
             }
             else
             {
-                throw new NotImplementedException();
+                throw new NotImplementedException("Invalid root element.");
             }
 
             List<IEnumerable<T>> result = new List<IEnumerable<T>>();

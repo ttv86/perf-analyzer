@@ -239,6 +239,20 @@ namespace PerformanceAnalyzer
                 }
             }
 
+            if (node is VariableDeclaratorSyntax variableDeclaratorSyntax)
+            {
+                ////if (this.IsDictionaryOrList(variableDeclaratorSyntax.Identifier))
+                ////{
+                ////    // Reference to a dictionary was changed. No need to track previous instance anymore.
+                ////    this.ClearDictionary(variableDeclaratorSyntax.Identifier, ref readCounts);
+                ////}
+                ////else
+                ////{
+                    // Value of a method was changed. It can be now considered as a new value.
+                    this.VariableChanged(variableDeclaratorSyntax.Identifier, ref readCounts);
+                ////}
+            }
+
             // Element access
             // var value = dictionary[key];
             if (node is ElementAccessExpressionSyntax elementAccess)
@@ -387,7 +401,7 @@ namespace PerformanceAnalyzer
         {
             System.Diagnostics.Debug.WriteLine($"Reading {expression} by key {key} ({this.GetFirstLine(expression.Parent.Parent.Parent.ToString())})");
             Tuple<ExpressionSyntax, ExpressionSyntax> searchKey = new Tuple<ExpressionSyntax, ExpressionSyntax>(expression, key);
-            readCounts = readCounts.Increment(searchKey);
+            readCounts = readCounts.Increment(searchKey, expression.GetLocation());
         }
 
         /// <summary>
@@ -481,6 +495,12 @@ namespace PerformanceAnalyzer
 
             return false;
         }
+
+        ////private bool IsDictionaryOrList(SyntaxNode syntaxToken)
+        ////{
+        ////    this.SemanticModel.GetSymbolInfo(syntaxToken);
+        ////    throw new NotImplementedException();
+        ////}
 
         /// <summary>
         /// Tests if given symbol is a reference to a dictionary or list types.
