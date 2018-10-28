@@ -6,6 +6,7 @@ namespace PerformanceAnalyzer
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -70,10 +71,21 @@ namespace PerformanceAnalyzer
             }
             else
             {
-                var symbol1 = this.analyzer.SemanticModel.GetSymbolInfo(x).Symbol;
+                var identifiers = x.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>();
+                foreach (var identifier in identifiers)
+                {
+                    var symbol1 = this.analyzer.SemanticModel.GetSymbolInfo(identifier).Symbol;
 
-                // Both are declared in same place. Consider as same.
-                return symbol1.DeclaringSyntaxReferences[0].GetSyntax(System.Threading.CancellationToken.None) == y.Parent;
+                    // Both are declared in same place. Consider as same.
+                    var firstReference = symbol1.DeclaringSyntaxReferences.FirstOrDefault();
+                    if (firstReference != null)
+                    {
+                        return firstReference.GetSyntax(System.Threading.CancellationToken.None) == y.Parent;
+                    }
+                }
+
+                // TODO: Where this happens?
+                return false;
             }
         }
 
